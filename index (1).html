@@ -42,6 +42,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd);font-size:14
 .logo{height:42px;width:42px;border-radius:50%;vertical-align:middle;margin-right:6px}
 .thumb{width:100%;height:150px;object-fit:cover;border-radius:8px;cursor:zoom-in;background:var(--bd)}
 .tn{width:48px;height:48px;object-fit:cover;border-radius:6px;cursor:zoom-in;display:block}
+video.pv{width:100%;max-height:320px;border-radius:8px;margin-top:8px;background:#000;display:block}
 img.pv{max-width:100%;max-height:320px;border-radius:8px;margin-top:8px;display:block}
 </style></head><body><main>
 <header>
@@ -104,7 +105,13 @@ img.pv{max-width:100%;max-height:320px;border-radius:8px;margin-top:8px;display:
  <label>Location</label><input id="fl" placeholder="e.g. Cabinet B, Shelf 2">
  <label>Notes</label><textarea id="fo" rows="2"></textarea>
  <label>Picture of the item</label>
+ <video id="fcam" class="pv" autoplay playsinline muted hidden></video>
  <img id="fpv" class="pv" alt="" hidden>
+ <div class="meta" id="fcamMsg" style="margin-top:6px"></div>
+ <div class="row" style="margin:6px 0">
+  <button id="fcamOn">📷 Open camera</button><button class="p" id="fcamSnap" hidden>📸 Take photo</button><button id="fcamFlip" hidden>🔄 Switch camera</button><button id="fcamRe" hidden>Retake</button>
+ </div>
+ <label>Or upload an existing picture</label>
  <input id="ff" type="file" accept="image/*">
  <label style="display:flex;align-items:center;gap:6px"><input id="frm" type="checkbox" style="width:auto"> Remove current picture</label>
  <div class="row" style="margin-top:12px"><button class="p" id="sI">Save</button><button id="cI">Cancel</button></div></dialog>
@@ -263,7 +270,7 @@ $("add").onclick=()=>{editId=null;$("dIt").textContent="Add item";["fn","fc","fl
 $("cI").onclick=()=>$("dI").close();
 let fFile=null;
 $("ff").onchange=async()=>{const f=$("ff").files[0];if(!f)return;
- try{fFile=await shrink(f,900);$("fpv").src=URL.createObjectURL(fFile);$("fpv").hidden=false;$("frm").checked=false}
+ try{fcamStop();$("fcamOn").hidden=false;$("fcamRe").hidden=true;fFile=await shrink(f,900);$("fpv").src=URL.createObjectURL(fFile);$("fpv").hidden=false;$("frm").checked=false}
  catch(e){fFile=null;$("ff").value="";alert("That file could not be read as a picture.")}};
 $("sI").onclick=async()=>{const name=$("fn").value.trim(),quantity=parseInt($("fq").value,10),dm=parseInt($("fdm").value,10)||0,un=parseInt($("fun").value,10)||0;
  if(!name||isNaN(quantity)||quantity<0)return alert("Enter a name and a valid quantity.");
@@ -613,6 +620,25 @@ $("rDel").onclick=async()=>{const r=rounds.find(x=>x.id===curRound);if(!r)return
  if(!typedOK())return;
  const {error}=await sb.from("inventory_rounds").delete().eq("id",r.id);if(error)return alert(error.message);
  curRound=null;loadRounds()};
+
+/* ---- live camera for the item picture (laptop webcam or phone camera) ---- */
+let fStream=null,fFacing="environment";
+function fcamStop(){if(fStream){fStream.getTracks().forEach(t=>t.stop());fStream=null}
+ $("fcam").srcObject=null;$("fcam").hidden=true;$("fcamSnap").hidden=true;$("fcamFlip").hidden=true}
+async function fcamStart(){fcamStop();$("fcamMsg").textContent="";
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$("fcamMsg").textContent="This browser cannot open the camera here. Use the upload option below.";return}
+ try{fStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:fFacing},width:{ideal:1280},height:{ideal:960}},audio:false});
+  $("fcam").srcObject=fStream;$("fcam").hidden=false;$("fpv").hidden=true;
+  $("fcamSnap").hidden=false;$("fcamFlip").hidden=false;$("fcamOn").hidden=true;$("fcamRe").hidden=true}
+ catch(e){$("fcamOn").hidden=false;
+  $("fcamMsg").textContent=e.name==="NotAllowedError"?"Camera access was blocked. Click the camera icon in the address bar, allow it for this site, then click Open camera. Or upload a picture below.":"No camera was found, or another app is using it. You can upload a picture below."}}
+$("fcamOn").onclick=fcamStart;$("fcamRe").onclick=fcamStart;
+$("fcamFlip").onclick=()=>{fFacing=fFacing==="environment"?"user":"environment";fcamStart()};
+$("fcamSnap").onclick=()=>{const v=$("fcam");if(!v.videoWidth)return;
+ const sc=Math.min(1,900/Math.max(v.videoWidth,v.videoHeight)),c=document.createElement("canvas");
+ c.width=Math.round(v.videoWidth*sc);c.height=Math.round(v.videoHeight*sc);c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+ c.toBlob(b=>{fFile=b;$("fpv").src=URL.createObjectURL(b);$("fpv").hidden=false;$("frm").checked=false;fcamStop();$("fcamRe").hidden=false;$("fcamOn").hidden=true},"image/jpeg",.85)};
+$("dI").addEventListener("close",()=>{fcamStop();$("fcamOn").hidden=false;$("fcamRe").hidden=true;$("fcamMsg").textContent=""});
 
 /* ---- start ---- */
 if(typeof SUPABASE_URL==="undefined"||SUPABASE_URL.startsWith("PASTE")){note("Setup needed: open config.js and paste your Supabase URL and anon key.");}
