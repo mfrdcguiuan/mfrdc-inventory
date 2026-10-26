@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MFRDC Inventory and Borrowing System</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b4a6e">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MFRDC Inventory">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#667085;--bd:#dde1e7;--ac:#1d6fd8;--ok:#1a7f4b;--warn:#b54708;--bad:#c0332b}
+@media (prefers-color-scheme:dark){:root{--bg:#14171b;--card:#1d2127;--tx:#e8eaed;--mut:#9aa3ae;--bd:#303741;--ac:#5aa2ff;--ok:#4cc58a;--warn:#f0a35a;--bad:#ff7b72}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+h1{font-size:22px;margin:4px 0 2px}.sub{color:var(--mut);margin:0 0 14px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+input,select,textarea,button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px 10px}
+input[type=search]{flex:1;min-width:180px}
+button{cursor:pointer}button.p{background:var(--ac);border-color:var(--ac);color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}button.d{color:var(--bad)}button.s{padding:4px 8px;font-size:13px}
+.tabs button.on{border-color:var(--ac);color:var(--ac);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.card h3{margin:0;font-size:16px}.meta{color:var(--mut);font-size:13px}
+.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid currentColor;white-space:nowrap}
+.ok{color:var(--ok)}.low{color:var(--warn)}.out{color:var(--bad)}.neutral{color:var(--mut)}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+dialog{border:1px solid var(--bd);border-radius:12px;background:var(--card);color:var(--tx);max-width:440px;width:calc(100% - 24px)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+label{display:block;font-size:13px;color:var(--mut);margin:8px 0 3px}
+dialog input,dialog textarea,dialog select{width:100%}
+.note{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:12px}
+.tblw{overflow-x:auto}table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--bd)}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd);font-size:14px;white-space:nowrap;vertical-align:top}
+.empty{text-align:center;color:var(--mut);padding:30px}
+.logo{height:42px;width:42px;border-radius:50%;vertical-align:middle;margin-right:6px}
+.thumb{width:100%;height:150px;object-fit:cover;border-radius:8px;cursor:zoom-in;background:var(--bd)}
+.tn{width:48px;height:48px;object-fit:cover;border-radius:6px;cursor:zoom-in;display:block}
+video.pv{width:100%;max-height:320px;border-radius:8px;margin-top:8px;background:#000;display:block}
+img.pv{max-width:100%;max-height:320px;border-radius:8px;margin-top:8px;display:block}
+
+#menuBtn{display:none}
+#mbd{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55}
+.menu{display:flex;flex-direction:column;gap:2px;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px}
+.menu button{border:0;background:transparent;text-align:left;padding:9px 12px;border-radius:8px;display:flex;align-items:center;gap:8px;width:100%}
+.menu button:hover{background:var(--bg)}
+.menu button.on{background:var(--bg);box-shadow:inset 3px 0 0 var(--ac);color:var(--ac);font-weight:600}
+.menu .mg{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:12px 12px 4px}
+.pill{margin-left:auto;background:var(--bad);color:#fff;border-radius:99px;padding:0 8px;font-size:12px;font-weight:700}
+#shell{display:block}
+main.staff{max-width:1320px}
+main.staff #shell{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px;align-items:start}
+main.staff #tabs{position:sticky;top:12px}
+#content{min-width:0}
+@media (max-width:820px){
+ main.staff #shell{display:block}
+ main.staff #menuBtn{display:inline-flex}
+ main.staff #tabs{display:none}
+ main.staff #tabs.open{display:flex;position:fixed;top:0;left:0;bottom:0;width:270px;z-index:60;border-radius:0 12px 12px 0;overflow-y:auto}
+ body.menu-open #mbd{display:block}
+}
+
+.menu .ic{width:22px;text-align:center;flex:none}
+.menu button{position:relative}
+.menu .mt{color:var(--mut);font-size:13px;margin-bottom:6px}
+@media (min-width:821px){
+ main.staff.collapsed #shell{grid-template-columns:68px minmax(0,1fr)}
+ main.staff.collapsed .menu{padding:8px 6px}
+ main.staff.collapsed .menu .lb,main.staff.collapsed .menu .mg{display:none}
+ main.staff.collapsed .menu button{justify-content:center;padding:10px 0}
+ main.staff.collapsed .pill{position:absolute;top:2px;right:4px;margin:0;padding:0 5px;font-size:10px}
+}
+@media (max-width:820px){ .menu .mt{display:none} }
+</style></head><body><main>
+<div id="mbd"></div>
+<header>
+ <button id="menuBtn" aria-label="Open the menu">☰ Menu</button>
+ <div><h1><img src="icon-192.png" alt="MFRDC logo" class="logo">MFRDC Inventory and Borrowing System</h1><p class="sub">Search items, check availability, and request to borrow.</p></div>
+ <div class="bar"><button id="rl" title="Reload the app to get the latest version and data">🔄 Refresh</button><button id="bkAll" hidden>💾 Full backup</button><button id="inst" hidden>⬇ Install app</button><span id="who" class="meta"></span><button id="login">Staff login</button><button id="logout" hidden>Log out</button></div>
+</header>
+<div id="shell">
+<nav id="tabs" class="menu" hidden aria-label="Main menu">
+ <button id="menuToggle" class="mt" title="Collapse menu"><span class="ic" id="mtIc">«</span><span class="lb">Collapse menu</span></button>
+ <button id="t6" title="Dashboard"><span class="ic">📊</span><span class="lb">Dashboard</span></button>
+ <div class="mg">Stock</div>
+ <button id="t1" class="on" title="Items"><span class="ic">📦</span><span class="lb">Items</span></button>
+ <button id="t3" title="Inventory table"><span class="ic">📋</span><span class="lb">Inventory table</span></button>
+ <div class="mg">Borrowing</div>
+ <button id="t2" title="Requests and loans"><span class="ic">🔁</span><span class="lb">Requests &amp; loans</span><span class="pill" id="nb" hidden>0</span></button>
+ <div class="mg">Accountability</div>
+ <button id="t4" title="Accountability"><span class="ic">👤</span><span class="lb">Accountability</span></button>
+ <button id="t5" title="Inventory"><span class="ic">✅</span><span class="lb">Inventory</span></button>
+ <div class="mg" id="tgAdmin" hidden>Admin</div>
+ <button id="t7" hidden title="Activity log"><span class="ic">📜</span><span class="lb">Activity log</span></button>
+ <button id="t8" hidden title="Staff"><span class="ic">👥</span><span class="lb">Staff</span></button>
+</nav>
+<div id="content">
+<div id="note" class="note" hidden></div>
+
+<section id="v1">
+ <div id="cartbar" class="note" hidden>🧺 Your request has <b id="cn">0 items</b>. <button class="p s" id="cartOpen">Review &amp; submit</button> <button class="s" id="cartClr">Clear</button></div>
+ <div class="bar">
+  <input type="search" id="q" placeholder="Search name, category, location, notes…" aria-label="Search">
+  <select id="cat" aria-label="Category"><option value="">All categories</option></select>
+  <label style="display:flex;align-items:center;gap:6px;margin:0"><input type="checkbox" id="avail" style="width:auto"> Available only</label>
+  <button class="p" id="add" hidden>+ Add item</button>
+  <button id="imp" hidden>⬆ Import CSV</button>
+ </div>
+ <div class="grid" id="grid"></div>
+</section>
+
+<section id="v3" hidden>
+ <div class="bar"><input type="search" id="tq" placeholder="Search the inventory table…" aria-label="Search table"><label style="display:flex;align-items:center;gap:6px;margin:0"><input type="checkbox" id="tdmg" style="width:auto"> Only items with damaged / unserviceable units</label><span class="meta" id="tc"></span><button id="xi">⬇ Export inventory report</button><button id="xb">⬇ Backup CSV (for re-import)</button><button class="d" id="itDel" disabled>🗑 Delete selected</button></div>
+ <div class="tblw"><table><thead><tr><th><input type="checkbox" id="itAll" title="Select all shown" style="width:auto"></th><th>Picture</th><th>Item</th><th>Unit</th><th>Type</th><th>Category</th><th>Location</th><th>Total</th><th>With employees</th><th>Reserved / borrowed</th><th>Damaged</th><th>Unserviceable (for disposal)</th><th>Available</th><th>Notes</th><th>Action</th></tr></thead><tbody id="itbody"></tbody></table></div>
+</section>
+
+<section id="v4" hidden>
+ <div class="bar"><input type="search" id="aq" placeholder="Search employee, item, serial no…" aria-label="Search accountability">
+  <label style="display:flex;align-items:center;gap:6px;margin:0"><input type="checkbox" id="ah" style="width:auto"> Show returned</label>
+  <button class="p" id="aAdd">+ Assign item</button><button id="aImp">⬆ Import CSV</button><button id="aX">⬇ Export CSV</button><button id="aRcpt">✉ Request confirmation</button><button id="aCip">✔ Confirm in person</button><button id="aPrint">🖨 Print slips</button><button class="d" id="aDel" disabled>🗑 Delete selected</button></div>
+ <div class="meta" id="acnt" style="margin-bottom:8px"></div>
+ <div class="tblw"><table><thead><tr><th><input type="checkbox" id="asAll" title="Select all shown" style="width:auto"></th><th>Accountable employee</th><th>Contact</th><th>Item</th><th>Qty</th><th>Serial / property no.</th><th>Condition</th><th>Assigned</th><th>Receipt confirmed?</th><th>Action</th></tr></thead><tbody id="abody"></tbody></table></div>
+</section>
+
+<section id="v5" hidden>
+ <div class="bar"><select id="rsel" aria-label="Inventory round"></select><button class="p" id="rStart">Start inventory</button><button id="rClose">Close round</button><button id="rX">⬇ Export results</button><button id="rRep">📋 Inventory report</button><button id="rPrint">🖨 Print checklist</button><button class="d" id="rDel" disabled>🗑 Delete round</button></div>
+ <div class="note" id="rinfo"></div>
+ <div class="tblw"><table><thead><tr><th>Employee</th><th>Contact</th><th>Item</th><th>Qty</th><th>Serial / property no.</th><th>Result</th><th>Remarks</th><th>Checked</th><th></th></tr></thead><tbody id="rbody"></tbody></table></div>
+</section>
+
+<section id="v6" hidden>
+ <div class="grid" id="dTiles" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr))"></div>
+ <h4 style="margin:16px 0 4px">Overdue borrowed items</h4>
+ <div class="tblw"><table><thead><tr><th>Borrower</th><th>Contact</th><th>Items</th><th>Due</th><th>Days overdue</th></tr></thead><tbody id="dOver"></tbody></table></div>
+ <h4 style="margin:16px 0 4px">Requests waiting for approval</h4>
+ <div class="tblw"><table><thead><tr><th>Borrower</th><th>Items</th><th>Requested</th><th>Borrow period</th></tr></thead><tbody id="dPend"></tbody></table></div>
+ <h4 style="margin:16px 0 4px">Low stock</h4>
+ <div class="tblw"><table><thead><tr><th>Item</th><th>Available</th><th>Reorder level</th></tr></thead><tbody id="dLow"></tbody></table></div>
+ <h4 style="margin:16px 0 4px">Damaged or unserviceable items</h4>
+ <div class="tblw"><table><thead><tr><th>Item</th><th>Damaged</th><th>Unserviceable (for disposal)</th></tr></thead><tbody id="dBad"></tbody></table></div>
+</section>
+
+<section id="v7" hidden>
+ <div class="bar"><input type="search" id="lq" placeholder="Search the activity log…" aria-label="Search activity log"><button id="lRef">Refresh</button><button id="lX">⬇ Export CSV</button></div>
+ <div class="meta" id="lc" style="margin-bottom:8px"></div>
+ <div class="tblw"><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Details</th></tr></thead><tbody id="lbody"></tbody></table></div>
+</section>
+
+<section id="v8" hidden>
+ <div class="note">Admins can do everything, including deleting. Staff can add and edit items and process requests, but cannot delete. To add someone, first create their login in Supabase (Authentication, Users, Add user), then add their email here.</div>
+ <div class="bar"><input id="stEmail" type="email" placeholder="staff email"><select id="stRole"><option value="staff">Staff</option><option value="admin">Admin</option></select><button class="p" id="stAdd">Add or update</button></div>
+ <div class="tblw"><table><thead><tr><th>Email</th><th>Role</th><th></th></tr></thead><tbody id="stbody"></tbody></table></div>
+ <h4 style="margin:22px 0 4px">Automatic monthly backups</h4>
+ <div class="meta">On the last day of every month a backup of all data is saved and a copy is emailed to the inventory mailbox. Photos are not included.</div>
+ <div class="bar" style="margin-top:8px"><button id="bkNow">Run a backup now</button><button id="bkRef">Refresh</button></div>
+ <div class="tblw"><table><thead><tr><th>When</th><th>Result</th><th>Size</th><th>Records</th><th></th></tr></thead><tbody id="bkbody"></tbody></table></div>
+</section>
+
+<section id="vc" hidden>
+ <div class="card" style="max-width:560px;margin:20px auto">
+  <h3>Cancel your borrow request</h3>
+  <div id="vcInfo" class="meta"></div>
+  <div id="vcList" style="margin:8px 0"></div>
+  <div id="vcForm"><button class="d" id="vcGo">Cancel this request</button></div>
+  <div id="vcDone" class="note" hidden></div>
+ </div>
+</section>
+
+<section id="vr" hidden>
+ <div class="card" style="max-width:560px;margin:20px auto">
+  <h3>Confirm receipt of items</h3>
+  <div id="vrInfo" class="meta"></div>
+  <div id="vrList" style="margin:8px 0"></div>
+  <div id="vrForm"><label>Your full name *</label><input id="vrName">
+   <div class="row" style="margin-top:12px"><button class="p" id="vrGo">✔ I confirm that I received these items</button></div></div>
+  <div id="vrDone" class="note" hidden></div>
+ </div>
+</section>
+
+<section id="v2" hidden>
+ <div class="bar"><label style="display:flex;align-items:center;gap:6px;margin:0"><input type="checkbox" id="hist" style="width:auto"> Show history (completed, rejected)</label><input type="search" id="rqq" placeholder="Search reference no., borrower, item…" style="min-width:230px" aria-label="Search requests"><button id="refresh">Refresh</button><button id="xr">⬇ Export requests CSV</button><button id="rqLog">🖨 Print logbook page</button><button class="d" id="rqDel" disabled>🗑 Delete selected</button></div>
+ <div class="tblw"><table><thead><tr><th><input type="checkbox" id="rqAll" title="Select all shown" style="width:auto"></th><th>Ref no.</th><th>Items requested</th><th>Borrower</th><th>Contact</th><th>Requested</th><th>Borrow period</th><th>Status</th><th>Photos (1 proof each)</th><th>Notices sent</th><th>Action</th></tr></thead><tbody id="reqs"></tbody></table></div>
+</section>
+
+</div>
+</div>
+
+<dialog id="dL"><h3>Staff login</h3>
+ <label>Email</label><input id="le" type="email" autocomplete="username">
+ <label>Password</label><input id="lp" type="password" autocomplete="current-password">
+ <div class="row" style="margin-top:12px"><button class="p" id="sL">Log in</button><button id="cL">Cancel</button></div></dialog>
+
+<dialog id="dI"><h3 id="dIt">Add item</h3>
+ <label>Name *</label><input id="fn">
+ <label>Item type *</label>
+ <select id="fT"><option value="true">Returnable (equipment, tools, devices)</option><option value="false">Non-returnable / consumable (office supplies)</option></select>
+ <label>Quantity * (total owned, including damaged and unserviceable units)</label><input id="fq" type="number" min="0" value="1">
+ <label>Unit of measure * (choose one or type your own)</label><input id="fu" list="unitList" value="pcs" placeholder="pcs, meters, unit…">
+ <datalist id="unitList"><option value="pcs"><option value="unit"><option value="set"><option value="pair"><option value="box"><option value="pack"><option value="ream"><option value="roll"><option value="bottle"><option value="bundle"><option value="sheet"><option value="meters"><option value="cm"><option value="kg"><option value="liters"></datalist>
+ <div class="meta">Quantities are whole numbers. For lengths or weights, use a small unit such as cm or grams.</div>
+ <label>Damaged (repairable): number of units</label><input id="fdm" type="number" min="0" value="0">
+ <label>Unserviceable (beyond repair / for disposal): number of units</label><input id="fun" type="number" min="0" value="0">
+ <div class="meta">Damaged and unserviceable units stay in the total but cannot be borrowed or assigned.</div>
+ <label style="display:flex;align-items:center;gap:6px;color:var(--tx)"><input id="ftu" type="checkbox" style="width:auto"> Track each unit by its own serial / property number</label>
+ <div class="meta">For equipment such as laptops, where every unit has its own number. After saving, click <b>Units</b> on the item to add the numbers. The damaged and unserviceable counts then come from the units.</div>
+ <label>Reorder level (optional): flag as low stock when available falls to this number</label><input id="frl" type="number" min="0" placeholder="e.g. 5">
+ <label>Category</label><input id="fc" placeholder="e.g. Equipment, Office supplies">
+ <label>Location</label><input id="fl" placeholder="e.g. Cabinet B, Shelf 2">
+ <label>Notes</label><textarea id="fo" rows="2"></textarea>
+ <label>Picture of the item</label>
+ <video id="fcam" class="pv" autoplay playsinline muted hidden></video>
+ <img id="fpv" class="pv" alt="" hidden>
+ <div class="meta" id="fcamMsg" style="margin-top:6px"></div>
+ <div class="row" style="margin:6px 0">
+  <button id="fcamOn">📷 Open camera</button><button class="p" id="fcamSnap" hidden>📸 Take photo</button><button id="fcamFlip" hidden>🔄 Switch camera</button><button id="fcamRe" hidden>Retake</button>
+ </div>
+ <label>Or upload an existing picture</label>
+ <input id="ff" type="file" accept="image/*">
+ <label style="display:flex;align-items:center;gap:6px"><input id="frm" type="checkbox" style="width:auto"> Remove current picture</label>
+ <div class="row" style="margin-top:12px"><button class="p" id="sI">Save</button><button id="cI">Cancel</button></div></dialog>
+
+<dialog id="dM"><h3>Import items from CSV</h3>
+ <div class="meta">Columns: <b>name</b>, <b>quantity</b>, unit (for example pcs), returnable (true/false), category, location, notes, damaged, unserviceable, reorder_level. Save your Excel sheet as <b>CSV</b> first. Items whose name already exists are skipped.</div>
+ <div class="row" style="margin:8px 0"><button class="s" id="tpl">Download template</button></div>
+ <label>Choose CSV file *</label><input id="mf" type="file" accept=".csv,text/csv">
+ <div id="ms" class="meta" style="margin-top:8px;white-space:pre-wrap"></div>
+ <div class="row" style="margin-top:12px"><button class="p" id="mGo" disabled>Import</button><button id="mC">Close</button></div></dialog>
+
+<dialog id="dA"><h3 id="dAt">Assign item to employee</h3>
+ <label>Item *</label><select id="ai"></select>
+ <label>Accountable employee (full name) *</label><input id="an">
+ <label>Employee email * (notices are sent here). No email? Type NONE: staff will handle it in person.</label><input id="aem" placeholder="name@example.com or 09XXXXXXXXX">
+ <div id="aUnitRow" hidden><label>Serial / property number *</label><select id="au"></select></div>
+ <div id="aQtyRow"><label>Quantity *</label><input id="aqty" type="number" min="1" value="1">
+ <label>Serial / property number</label><input id="asn"></div>
+ <label>Condition</label><select id="acond"><option>Good</option><option>Fair</option><option>Needs repair</option><option>Damaged</option><option>Unserviceable</option></select>
+ <label>Date assigned</label><input id="ad" type="date">
+ <label>Notes</label><textarea id="ano" rows="2"></textarea>
+ <div class="row" style="margin-top:12px"><button class="p" id="aSave">Save</button><button id="aC">Cancel</button></div></dialog>
+
+<dialog id="dAI"><h3>Import assignments from CSV</h3>
+ <div class="meta">Columns: <b>item</b> (must already exist, same name), <b>employee_name</b>, <b>employee_contact</b>, quantity, serial_no, condition, date_assigned (YYYY-MM-DD), notes. Add the items first, with their full quantity.</div>
+ <div class="row" style="margin:8px 0"><button class="s" id="aiT">Download template</button></div>
+ <label>Choose CSV file *</label><input id="aif" type="file" accept=".csv,text/csv">
+ <div id="ais" class="meta" style="margin-top:8px;white-space:pre-wrap"></div>
+ <div class="row" style="margin-top:12px"><button class="p" id="aiGo" disabled>Import</button><button id="aiC">Close</button></div></dialog>
+
+<dialog id="dRS"><h3>Start inventory</h3>
+ <div class="meta">Every accountable employee with an item in the count will be notified by email or SMS. Units kept in storage are listed for counting, but nobody is emailed for them.</div>
+ <label>What to count *</label>
+ <select id="rsScope"><option value="all">All items</option><option value="one">Only one item</option></select>
+ <div id="rsItemRow" hidden><label>Item *</label><select id="rsItem"></select></div>
+ <label>Title (optional)</label><input id="rt" placeholder="e.g. Inventory, 1st half 2026">
+ <label>Deadline for verification *</label><input id="rd" type="date">
+ <div class="row" style="margin-top:12px"><button class="p" id="rsGo">Start and notify</button><button id="rsC">Cancel</button></div></dialog>
+
+<dialog id="dK"><h3>Record inventory result</h3><div class="meta" id="dKm"></div>
+ <label>Result *</label><select id="kr"><option value="verified">Verified: present and in order</option><option value="damaged">Present but damaged</option><option value="unserviceable">Present but unserviceable (for disposal)</option><option value="missing">Missing / not presented</option></select>
+ <label>Remarks</label><textarea id="kn" rows="2"></textarea>
+ <div class="row" style="margin-top:12px"><button class="p" id="kSave">Save result</button><button id="kC">Cancel</button></div></dialog>
+
+<dialog id="dRep" style="max-width:900px;width:calc(100% - 24px)"><h3 id="repT">Inventory report</h3>
+ <div class="meta" id="repS"></div>
+ <h4 style="margin:14px 0 4px">1. Borrowed items not yet returned</h4>
+ <div class="tblw"><table><thead><tr><th>Borrower</th><th>Contact</th><th>Items not returned</th><th>Due date</th><th>Status</th></tr></thead><tbody id="repA"></tbody></table></div>
+ <h4 style="margin:14px 0 4px">2. Accountable items not verified</h4>
+ <div class="tblw"><table><thead><tr><th>Accountable employee</th><th>Contact</th><th>Items</th></tr></thead><tbody id="repB"></tbody></table></div>
+ <h4 style="margin:14px 0 4px">3. Unserviceable items: for disposal</h4>
+ <div class="tblw"><table><thead><tr><th>Item</th><th>Qty</th><th>Serial / property no.</th><th>Held by</th><th>Location</th><th>Remarks</th><th>Status</th></tr></thead><tbody id="repD"></tbody></table></div>
+ <div class="row" style="margin-top:12px"><button class="p" id="repM">✉ Email reminders</button><button id="repX">⬇ Export CSV</button><button id="repP">🖨 Print</button><button id="repC">Close</button></div>
+ <div class="meta" style="margin-top:14px"><b>Recent reminders sent</b> <button class="s" id="repR">Refresh</button></div>
+ <div class="tblw"><table><thead><tr><th>Sent to</th><th>Result</th><th>When</th></tr></thead><tbody id="repL"></tbody></table></div></dialog>
+
+<dialog id="dH" style="max-width:640px;width:calc(100% - 24px)"><h3 id="dHt">Item history</h3>
+ <div class="tblw"><table><thead><tr><th>Date</th><th>What happened</th><th>Recorded by</th></tr></thead><tbody id="dHb"></tbody></table></div>
+ <div class="row" style="margin-top:12px"><button id="dHc">Close</button></div></dialog>
+
+<dialog id="dU" style="max-width:760px;width:calc(100% - 24px)"><h3 id="dUt">Serial / property numbers</h3>
+ <div class="meta" id="dUs"></div>
+ <label>Add many at once: paste serial / property numbers, one per line</label>
+ <textarea id="uPaste" rows="4" placeholder="PN-2024-0001&#10;PN-2024-0002"></textarea>
+ <div class="meta" style="margin-top:6px">Or generate a range of numbers:</div>
+ <div class="row" style="align-items:center">
+  <input id="uPre" placeholder="Prefix, e.g. PN-2024-" style="width:auto;flex:2;min-width:130px"><input id="uFrom" type="number" min="0" placeholder="From" style="width:auto;flex:1;min-width:70px"><input id="uTo" type="number" min="0" placeholder="To" style="width:auto;flex:1;min-width:70px"><input id="uPad" type="number" min="0" max="10" value="4" title="Digits" style="width:auto;flex:1;min-width:70px">
+ </div>
+ <div class="row" style="margin-top:6px;align-items:center"><select id="uCond" style="width:auto"><option>Good</option><option>Fair</option><option>Needs repair</option><option>Damaged</option><option>Unserviceable</option></select><input id="uLoc" placeholder="Location (optional)" style="width:auto;flex:1;min-width:120px"><button class="p" id="uAdd">Add units</button></div>
+ <div class="bar" style="margin-top:12px"><input type="search" id="uq" placeholder="Search the numbers…" aria-label="Search units"></div>
+ <div class="tblw" style="max-height:300px;overflow:auto"><table><thead><tr><th>Serial / property no.</th><th>Condition</th><th>Location</th><th>Held by</th><th></th></tr></thead><tbody id="ubody"></tbody></table></div>
+ <div class="row" style="margin-top:12px"><button id="uC">Close</button></div></dialog>
+
+<dialog id="dB"><h3 id="dBt">Your borrow request</h3>
+ <div class="meta">Add as many items as you need. You will get one confirmation message for the whole request.</div>
+ <div id="bl" style="margin:8px 0"></div>
+ <label>Your name *</label><input id="bn">
+ <label>Email or mobile number * (we send updates here). No email? Type NONE and the office will assist you.</label><input id="bc" placeholder="name@example.com or 09XXXXXXXXX">
+ <div id="bdRow"><label>Borrow from (start date) *</label><input id="bs" type="date"><label>Return by (end date) *</label><input id="bd" type="date"></div>
+ <div class="meta" id="bdNote" hidden>These items are non-returnable, so no return date is needed.</div>
+ <div class="row" style="margin-top:12px"><button class="p" id="sB">Submit request</button><button id="cB">Add more items</button></div></dialog>
+
+<dialog id="dP"><h3 id="dPt">Photo</h3><div class="meta" id="dPm"></div>
+ <video id="cam" class="pv" autoplay playsinline muted hidden></video>
+ <img id="phv" class="pv" alt="" hidden>
+ <div class="meta" id="camMsg" style="margin-top:6px"></div>
+ <div class="row" style="margin-top:8px">
+  <button id="camOn">📷 Open camera</button><button class="p" id="camSnap" hidden>📸 Take photo</button><button id="camFlip" hidden>🔄 Switch camera</button><button id="camRe" hidden>Retake</button>
+ </div>
+ <label>Or upload an existing photo</label>
+ <input id="phf" type="file" accept="image/*" capture="environment">
+ <div class="row" style="margin-top:12px"><button class="p" id="sP" disabled>Confirm</button><button id="cP">Cancel</button></div></dialog>
+
+<dialog id="dV"><h3 id="dVt">Photo</h3><img id="dVi" class="pv" alt="">
+ <div class="row" style="margin-top:12px"><button id="cV">Close</button></div></dialog>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const note=t=>{$("note").hidden=!t;$("note").textContent=t||""};
+let sb=null,isStaff=false,isAdmin=false,items=[],reqs=[],cart=[],editId=null,ph=null,phBlob=null;
+const today=()=>new Date().toISOString().slice(0,10);
+
+async function loadItems(){
+ const {data,error}=await sb.from("items_with_availability").select("*").order("name");
+ if(error)return note("Could not load items: "+error.message);
+ items=data;render();
+}
+async function loadReqs(){
+ if(!isStaff)return;
+ const {data,error}=await sb.from("request_batches").select("*, requests(*, items(name,returnable,unit)), notifications(kind,status)").order("created_at",{ascending:false});
+ if(error)return note("Could not load requests: "+error.message);
+ reqs=data;render();loadReceipts();
+}
+const STAT={pending:["Pending approval","low"],approved:["Approved: ready for release","ok"],borrowed:["Borrowed","ok"],done:["Completed","neutral"],rejected:["Rejected","out"],cancelled:["Cancelled","neutral"]};
+function batchStatus(b){const L=b.requests||[],has=x=>L.some(l=>l.status===x);
+ if(has("pending"))return"pending";if(has("approved"))return"approved";
+ if(L.some(l=>l.status==="released"&&l.items?.returnable))return"borrowed";
+ if(L.length&&L.every(l=>l.status==="cancelled"))return"cancelled";if(L.length&&L.every(l=>l.status==="rejected"))return"rejected";return"done"}
+function render(){
+ const q=$("q").value.toLowerCase().trim(),c=$("cat").value,ao=$("avail").checked;
+ const cats=[...new Set(items.map(i=>i.category).filter(Boolean))].sort();
+ $("cat").innerHTML='<option value="">All categories</option>'+cats.map(x=>`<option${x===c?" selected":""}>${esc(x)}</option>`).join("");
+ const list=items.filter(i=>(!c||i.category===c)&&(!ao||i.available>0)&&(!q||[i.name,i.category,i.location,i.notes].join(" ").toLowerCase().includes(q)));
+ $("grid").innerHTML=list.length?list.map(i=>{const a=i.available,cl=a===0?"out":a<=Math.ceil(i.quantity*.25)?"low":"ok";
+  return `<div class="card">${i.photo_path?`<img class="thumb" src="${imgUrl(i.photo_path)}" alt="" loading="lazy" data-img="${i.id}">`:""}<div style="display:flex;justify-content:space-between;gap:8px"><h3>${esc(i.name)}</h3><span class="badge ${cl}">${a===0?"Unavailable":a+" "+esc(i.unit||"pcs")+" available"}</span></div>
+  <div class="meta">Total: ${i.quantity} ${esc(i.unit||"pcs")}${i.category?" · "+esc(i.category):""} · <b>${i.returnable?"Returnable":"Non-returnable"}</b></div>
+  ${i.location?`<div class="meta">📍 ${esc(i.location)}</div>`:""}${i.notes?`<div class="meta">${esc(i.notes)}</div>`:""}
+  <div class="row"><button class="p" data-b="${i.id}" ${a===0?"disabled":""}>Add to request</button>${isStaff?`<button data-e="${i.id}">Edit</button>${isAdmin?`<button class="d" data-x="${i.id}">Delete</button>`:""}`:""}</div></div>`}).join("")
+  :`<div class="empty" style="grid-column:1/-1">${items.length?"No items match your search.":"No items yet."}</div>`;
+ if(!isStaff)return;
+ renderAssign();renderRounds();renderDash();
+ const tq=$("tq").value.toLowerCase().trim();
+ const tl=items.filter(i=>(!$("tdmg").checked||(i.damaged_qty||0)+(i.unserviceable_qty||0)>0)&&(!tq||[i.name,i.category,i.location,i.notes].join(" ").toLowerCase().includes(tq)));
+ $("tc").textContent=tl.length+" of "+items.length+" item(s)";
+ lastTl=tl;$("itDel").disabled=!selItems.size;$("itDel").textContent="🗑 Delete selected"+(selItems.size?" ("+selItems.size+")":"");$("itAll").checked=tl.length>0&&tl.every(i=>selItems.has(i.id));
+ $("itbody").innerHTML=tl.length?tl.map(i=>`<tr><td><input type="checkbox" class="itck" data-id="${i.id}" ${selItems.has(i.id)?"checked":""} style="width:auto"></td><td>${i.photo_path?`<img class="tn" src="${imgUrl(i.photo_path)}" alt="" loading="lazy" data-img="${i.id}">`:`<button class="s" data-e="${i.id}" title="Add a picture">📷 Add</button>`}</td><td>${esc(i.name)}${i.track_units?' <span class="meta">(serial-tracked)</span>':""}</td><td>${esc(i.unit||"pcs")}</td><td>${i.returnable?"Returnable":"Non-returnable"}</td><td>${esc(i.category||"—")}</td><td>${esc(i.location||"—")}</td><td>${i.quantity}</td><td>${i.assigned_qty||0}</td><td>${i.quantity-i.available-(i.assigned_qty||0)-(i.damaged_qty||0)-(i.unserviceable_qty||0)}</td><td>${i.damaged_qty?`<span class="badge low">${i.damaged_qty}</span>`:0}</td><td>${i.unserviceable_qty?`<span class="badge out">${i.unserviceable_qty}</span>`:0}</td><td><span class="badge ${i.available===0?"out":"ok"}">${i.available}</span></td><td class="meta" style="white-space:normal;min-width:140px">${esc(i.notes||"")}</td><td><button class="s" data-e="${i.id}">Edit</button>${i.track_units?` <button class="s" data-u="${i.id}">Units</button>`:""}${isAdmin?` <button class="d s" data-x="${i.id}">Delete</button>`:""}</td></tr>`).join(""):`<tr><td colspan="15" class="empty">${items.length?"No items match your search.":"No items yet."}</td></tr>`;
+ {const pn=reqs.filter(b=>batchStatus(b)==="pending").length;$("nb").textContent=pn;$("nb").hidden=!pn}
+ const sh=$("hist").checked,rqs=$("rqq").value.toLowerCase().trim(),rows=reqs.filter(b=>(sh||["pending","approved","borrowed"].includes(batchStatus(b)))&&(!rqs||[b.ref_no,b.borrower_name,b.borrower_contact,...(b.requests||[]).map(l=>l.items?.name)].join(" ").toLowerCase().includes(rqs)));
+ lastRows=rows;$("rqDel").disabled=!selReqs.size;$("rqDel").textContent="🗑 Delete selected"+(selReqs.size?" ("+selReqs.size+")":"");$("rqAll").checked=rows.length>0&&rows.every(b=>selReqs.has(b.id));
+ const kl={received:"Received",ready:"Ready",due:"Due",receipt:"Receipt link"};
+ $("reqs").innerHTML=rows.length?rows.map(b=>{const L=b.requests||[],st=batchStatus(b),[lab,cl]=STAT[st];
+  const st0=L.map(l=>l.start_date).filter(Boolean).sort()[0]||null,due=L.map(l=>l.due_date).filter(Boolean).sort()[0]||null,late=st==="borrowed"&&due&&due<today();
+  const relP=L.find(l=>l.release_photo_path),retP=L.find(l=>l.return_photo_path);
+  let act="";
+  if(st==="pending")act='<button class="p s" data-a="'+b.id+'">Approve</button> <button class="d s" data-j="'+b.id+'">Reject</button>';
+  else if(st==="approved")act='<button class="p s" data-rel="'+b.id+'">Release items (1 photo)</button> <button class="d s" data-j="'+b.id+'">Cancel</button>';
+  else if(st==="borrowed")act='<button class="p s" data-ret="'+b.id+'">Receive return (1 photo)</button>';
+  const rcp=receipts.find(x=>x.kind==="borrow"&&x.batch_id===b.id);
+  if(rcp&&!rcp.confirmed_at)act+=' <button class="s" data-cip="'+rcp.id+'">✔ Confirm in person</button>';
+  if(["approved","borrowed","done"].includes(st))act+=' <button class="s" data-slip="'+b.id+'">🖨 Slip</button>';
+  const photos=[relP?'<button class="s" data-v="'+b.id+'|release">Release</button>':"",retP?'<button class="s" data-v="'+b.id+'|return">Return</button>':""].join(" ")||"—";
+  const notices=(b.notifications||[]).map(n=>(kl[n.kind]||n.kind)+" "+(n.status==="sent"?"✓":n.status==="skipped"?"–":"✗")).join(" · ")||"—";
+  const itemsHtml=L.map(l=>l.quantity+" "+(l.items?.unit||"pcs")+" × "+esc(l.items?.name||"(deleted)")+(l.items?.returnable===false?' <span class="meta">(non-returnable)</span>':"")).join("<br>");
+  return `<tr><td><input type="checkbox" class="rqck" data-id="${b.id}" ${selReqs.has(b.id)?"checked":""} style="width:auto"></td><td><b>${esc(b.ref_no||"")}</b></td><td style="white-space:normal;min-width:170px">${itemsHtml}</td><td>${esc(b.borrower_name)}</td><td>${esc(b.borrower_contact)}</td><td>${esc(b.created_at.slice(0,10))}</td><td class="${late?"out":""}">${due?(st0?esc(st0)+" → ":"")+esc(due):"None needed"}${late?" (overdue)":""}</td><td><span class="badge ${cl}">${lab}</span>${rcptBatch(b)}</td><td>${photos}</td><td class="meta">${notices}</td><td>${act}</td></tr>`}).join(""):`<tr><td colspan="11" class="empty">No requests or loans to show.</td></tr>`;
+}
+function setStaff(on,email,role){
+ const was=isStaff;isAdmin=on&&role==="admin";isStaff=on;$("add").hidden=!on;$("imp").hidden=!on;$("tabs").hidden=!on;document.querySelector("main").classList.toggle("staff",on);$("login").hidden=on;$("logout").hidden=!on;
+ $("who").textContent=on?"Staff: "+email+(isAdmin?" (admin)":""):"";
+ ["itDel","rqDel","aDel","rDel","t7","t8","bkAll","tgAdmin"].forEach(i=>$(i).hidden=!isAdmin);
+ if(!on){show(1);reqs=[];assigns=[];rounds=[];checks=[]}
+ loadItems();loadReqs();loadAssign();loadRounds();
+ if(on&&!was)show(6);
+}
+async function checkStaff(session){
+ if(!session)return setStaff(false);
+ const {data}=await sb.from("staff").select("user_id,role").maybeSingle();
+ if(data)setStaff(true,session.user.email,data.role);
+ else{await sb.auth.signOut();setStaff(false);note("That account is not authorized as staff.")}
+}
+["q","cat","avail","hist","tq","tdmg","aq","ah","rqq"].forEach(i=>$(i).addEventListener("input",render));
+function loadAll(){loadItems();loadReqs();loadAssign();loadRounds();loadBackups()}
+function show(n){closeMenu();[1,2,3,4,5,6,7,8].forEach(k=>{$("v"+k).hidden=k!==n;$("t"+k).classList.toggle("on",k===n)});
+ if(n===2)loadReqs();else if(n===4)loadAssign();else if(n===5)loadRounds();else if(n===6)loadAll();else if(n===7)loadActivity();else if(n===8){loadStaffList();loadBackups()}else loadItems()}
+$("t1").onclick=()=>show(1);$("t2").onclick=()=>show(2);$("t3").onclick=()=>show(3);$("t4").onclick=()=>show(4);$("t5").onclick=()=>show(5);$("t6").onclick=()=>show(6);$("t7").onclick=()=>show(7);$("t8").onclick=()=>show(8);
+$("refresh").onclick=()=>{loadItems();loadReqs()};
+$("login").onclick=()=>$("dL").showModal();$("cL").onclick=()=>$("dL").close();
+$("sL").onclick=async()=>{const {error}=await sb.auth.signInWithPassword({email:$("le").value.trim(),password:$("lp").value});
+ if(error)return alert("Login failed: "+error.message);$("lp").value="";$("dL").close();note("")};
+$("logout").onclick=()=>sb.auth.signOut();
+
+/* ---- items (staff) ---- */
+$("add").onclick=()=>{editId=null;$("dIt").textContent="Add item";["fn","fc","fl","fo"].forEach(k=>$(k).value="");$("fq").value=1;$("fdm").value=0;$("fun").value=0;$("frl").value="";$("fu").value="pcs";$("ftu").checked=false;fToggleTrack();$("fT").value="true";fFile=null;$("ff").value="";$("fpv").hidden=true;$("frm").checked=false;$("dI").showModal()};
+$("cI").onclick=()=>$("dI").close();
+let fFile=null;
+$("ff").onchange=async()=>{const f=$("ff").files[0];if(!f)return;
+ try{fcamStop();$("fcamOn").hidden=false;$("fcamRe").hidden=true;fFile=await shrink(f,900);$("fpv").src=URL.createObjectURL(fFile);$("fpv").hidden=false;$("frm").checked=false}
+ catch(e){fFile=null;$("ff").value="";alert("That file could not be read as a picture.")}};
+$("sI").onclick=async()=>{const name=$("fn").value.trim(),quantity=parseInt($("fq").value,10),dm=parseInt($("fdm").value,10)||0,un=parseInt($("fun").value,10)||0;
+ if(!name||isNaN(quantity)||quantity<0)return alert("Enter a name and a valid quantity.");
+ if(dm<0||un<0)return alert("Damaged and unserviceable units cannot be negative.");
+ if(dm+un>quantity)return alert("Damaged + unserviceable units cannot be more than the total quantity.");
+ if($("ftu").checked&&(dm||un)&&!(editId&&items.find(x=>x.id===editId)?.track_units)&&!confirm("Damaged and unserviceable counts will now come from the units register, which starts empty. Continue?"))return;
+ const id=editId||crypto.randomUUID(),old=editId?items.find(x=>x.id===editId)?.photo_path:null;let photo_path=old||null;
+ if($("frm").checked&&!fFile)photo_path=null;
+ $("sI").disabled=true;
+ if(fFile){const p=id+"/"+Date.now()+".jpg",up=await sb.storage.from("item-images").upload(p,fFile,{contentType:"image/jpeg"});
+  if(up.error){$("sI").disabled=false;return alert("Picture upload failed: "+up.error.message)}photo_path=p}
+ const row={name,quantity,damaged_qty:dm,unserviceable_qty:un,unit:($("fu").value.trim().slice(0,30)||"pcs"),track_units:$("ftu").checked,reorder_level:($("frl").value===""?null:Math.max(0,parseInt($("frl").value,10)||0)),returnable:$("fT").value==="true",category:$("fc").value.trim()||null,location:$("fl").value.trim()||null,notes:$("fo").value.trim()||null,photo_path};
+ const {error}=editId?await sb.from("items").update(row).eq("id",editId):await sb.from("items").insert({...row,id});
+ $("sI").disabled=false;
+ if(error)return alert("Could not save: "+error.message);
+ if(old&&old!==photo_path)sb.storage.from("item-images").remove([old]);
+ $("dI").close();loadItems()};
+const imgUrl=p=>sb.storage.from("item-images").getPublicUrl(p).data.publicUrl;
+function showItemImg(id){const i=items.find(x=>x.id===id);if(!i||!i.photo_path)return;$("dVt").textContent=i.name;$("dVi").src=imgUrl(i.photo_path);$("dV").showModal()}
+
+/* ---- request to borrow (public) ---- */
+$("cB").onclick=()=>$("dB").close();
+$("grid").onclick=async e=>{const im=e.target.closest("img[data-img]");if(im)return showItemImg(im.dataset.img);const b=e.target.closest("button");if(!b||b.disabled)return;const d=b.dataset;
+ if(d.u&&isStaff)return openUnits(d.u);
+ if(d.b)addToCart(d.b);
+ if(d.e&&isStaff){editId=d.e;const i=items.find(x=>x.id===d.e);$("dIt").textContent="Edit item";$("fn").value=i.name;$("fq").value=i.quantity;$("fT").value=String(i.returnable);$("fc").value=i.category||"";$("fl").value=i.location||"";$("fo").value=i.notes||"";$("fdm").value=i.damaged_qty||0;$("fun").value=i.unserviceable_qty||0;$("frl").value=i.reorder_level??"";$("fu").value=i.unit||"pcs";$("ftu").checked=!!i.track_units;fToggleTrack();fFile=null;$("ff").value="";$("frm").checked=false;if(i.photo_path){$("fpv").src=imgUrl(i.photo_path);$("fpv").hidden=false}else $("fpv").hidden=true;$("dI").showModal()}
+ if(d.x&&isStaff){const i=items.find(x=>x.id===d.x);if(confirm('Permanently delete "'+i.name+'"? Its borrow requests and employee assignments are deleted too.')){const {data,error}=await sb.rpc("delete_items",{p_ids:[i.id]});if(error)return alert(error.message);if(data&&data.length)await sb.storage.from("item-images").remove(data);loadItems();loadReqs();loadAssign()}}};
+function cartRender(){$("cartbar").hidden=!cart.length;$("cn").textContent=cart.length+" item"+(cart.length===1?"":"s")}
+function addToCart(id){const i=items.find(x=>x.id===id);if(!i||i.available<1)return;const c=cart.find(x=>x.id===id);
+ if(c){if(c.qty>=i.available)return note("Only "+i.available+" of "+i.name+" available.");c.qty++}else cart.push({id,qty:1});
+ cartRender();note("🧺 Added "+i.name+" to your request. Add more items, or click “Review & submit”.")}
+function cartDialog(){cart=cart.filter(c=>items.some(i=>i.id===c.id));cartRender();
+ if(!cart.length){if($("dB").open)$("dB").close();return}
+ $("bl").innerHTML=cart.map((c,ix)=>{const i=items.find(x=>x.id===c.id);
+  return `<div class="row" style="align-items:center;margin:4px 0"><span style="flex:1">${esc(i.name)} <span class="meta">(${i.available} ${esc(i.unit||"pcs")} available${i.returnable?"":", non-returnable"})</span></span><input type="number" min="1" max="${i.available}" value="${c.qty}" data-q="${ix}" style="width:70px"><span class="meta">${esc(i.unit||"pcs")}</span><button class="d s" data-rm="${ix}" title="Remove">✕</button></div>`}).join("");
+ const anyRet=cart.some(c=>items.find(x=>x.id===c.id)?.returnable);$("bdRow").hidden=!anyRet;$("bdNote").hidden=anyRet;$("bs").min=today();if(!$("bs").value)$("bs").value=today();$("bd").min=$("bs").value||today()}
+$("bs").onchange=()=>{$("bd").min=$("bs").value||today()};
+$("cartOpen").onclick=()=>{cartDialog();if(cart.length)$("dB").showModal()};
+$("cartClr").onclick=()=>{cart=[];cartRender();note("")};
+$("bl").onchange=e=>{const t=e.target;if(t.dataset.q===undefined)return;const c=cart[+t.dataset.q],i=items.find(x=>x.id===c.id);
+ let v=parseInt(t.value,10);if(isNaN(v)||v<1)v=1;if(v>i.available)v=i.available;c.qty=v;t.value=v};
+$("bl").onclick=e=>{const b=e.target.closest("button");if(!b||b.dataset.rm===undefined)return;cart.splice(+b.dataset.rm,1);cartDialog()};
+$("sB").onclick=async()=>{const n=$("bn").value.trim(),c=$("bc").value.trim(),dd=$("bd").value,sd=$("bs").value;
+ if(!cart.length)return alert("Your request is empty. Add at least one item.");
+ if(!n||!c)return alert("Please fill in your name and your email or mobile number.");
+ const anyRet=cart.some(x=>items.find(i=>i.id===x.id)?.returnable);
+ if(anyRet&&(!dd||!sd))return alert("Please choose the start date and the return date.");
+ if(anyRet&&dd<sd)return alert("The return date cannot be before the start date.");
+ $("sB").disabled=true;
+ const {data:refNo,error}=await sb.rpc("submit_borrow_request",{p_name:n,p_contact:c,p_start:anyRet?sd:null,p_due:anyRet?dd:null,p_items:cart.map(x=>({item_id:x.id,quantity:x.qty}))});
+ $("sB").disabled=false;
+ if(error)return alert("Could not submit: "+error.message);
+ const count=cart.length;cart=[];cartRender();$("dB").close();$("bn").value=$("bc").value=$("bd").value=$("bs").value="";
+ note("✅ Request submitted with "+count+" item"+(count===1?"":"s")+". Your reference number is "+(refNo||"")+": keep it and quote it when you pick up the items. One confirmation will be sent to the email or number you provided. Staff will review your request.");loadItems()};
+
+/* ---- staff actions on requests (the whole request at once) ---- */
+async function rpcBatch(fn,args){const {error}=await sb.rpc(fn,args);if(error)alert(error.message);loadItems();loadReqs()}
+const photoPath=(r,kind)=>(r.requests||[]).map(l=>kind==="release"?l.release_photo_path:l.return_photo_path).find(Boolean);
+$("reqs").onclick=async e=>{const b=e.target.closest("button");if(!b||!isStaff)return;const d=b.dataset;
+ if(d.slip)return printSlip(d.slip);
+ if(d.cip){if(!confirm("Confirm receipt in person?\nUse this only after the borrower has signed the paper slip or received the items in front of you."))return;
+  const r=await sb.rpc("confirm_receipt_in_person",{p_receipt:d.cip,p_note:"paper slip signed"});if(r.error)alert(r.error.message);return loadReceipts()}
+ if(d.a)rpcBatch("approve_batch",{p_batch:d.a});
+ if(d.j&&confirm("Reject / cancel this whole request?"))rpcBatch("reject_batch",{p_batch:d.j});
+ if(d.rel||d.ret){const r=reqs.find(x=>x.id===(d.rel||d.ret)),kind=d.rel?"release":"return";ph={id:r.id,kind};phBlob=null;
+  const list=(r.requests||[]).filter(l=>kind==="release"?l.status==="approved":(l.status==="released"&&l.items?.returnable)).map(l=>l.quantity+" "+(l.items?.unit||"pcs")+" × "+(l.items?.name||"")).join(", ");
+  $("dPt").textContent=kind==="release"?"Release items":"Receive returned items";
+  $("dPm").textContent=kind==="release"?`Take ONE photo of ${r.borrower_name} together with all the items: ${list}. This single photo is the proof for the whole request.`:`Take ONE photo of all the returned items: ${list}. This single photo is the proof of return.`;
+  $("phf").value="";$("phv").hidden=true;$("sP").disabled=true;$("camMsg").textContent="";$("camRe").hidden=true;$("camOn").hidden=false;$("dP").showModal();camStart()}
+ if(d.v){const [id,kind]=d.v.split("|"),r=reqs.find(x=>x.id===id),path=photoPath(r,kind);
+  const {data,error}=await sb.storage.from("photos").createSignedUrl(path,600);if(error)return alert(error.message);
+  $("dVt").textContent=(kind==="release"?"Release photo: ":"Return photo: ")+r.borrower_name;$("dVi").src=data.signedUrl;$("dV").showModal()}};
+$("cV").onclick=()=>$("dV").close();$("cP").onclick=()=>$("dP").close();$("dP").addEventListener("close",()=>camStop());
+
+/* ---- photo capture: resize, upload, then change status ---- */
+async function shrink(file,max){max=max||1280;const bm=await createImageBitmap(file),sc=Math.min(1,max/Math.max(bm.width,bm.height)),c=document.createElement("canvas");
+ c.width=Math.round(bm.width*sc);c.height=Math.round(bm.height*sc);c.getContext("2d").drawImage(bm,0,0,c.width,c.height);
+ return new Promise(r=>c.toBlob(r,"image/jpeg",.8))}
+$("phf").onchange=async()=>{const f=$("phf").files[0];if(!f)return;camStop();$("camOn").hidden=false;$("camRe").hidden=true;
+ try{phBlob=await shrink(f);$("phv").src=URL.createObjectURL(phBlob);$("phv").hidden=false;$("sP").disabled=false}
+ catch(e){phBlob=null;$("sP").disabled=true;alert("That file could not be read as a photo.")}};
+$("sP").onclick=async()=>{if(!phBlob||!ph)return;$("sP").disabled=true;
+ const path=`${ph.id}/${ph.kind}-${Date.now()}.jpg`;
+ const up=await sb.storage.from("photos").upload(path,phBlob,{contentType:"image/jpeg"});
+ if(up.error){$("sP").disabled=false;return alert("Photo upload failed: "+up.error.message)}
+ const {error}=await sb.rpc(ph.kind==="release"?"release_batch":"return_batch",{p_batch:ph.id,p_photo:path});
+ if(error){$("sP").disabled=false;return alert(error.message)}
+ $("dP").close();loadItems();loadReqs()};
+
+
+/* ---- bulk import from CSV (staff) ---- */
+let impRows=[];
+function parseCSV(t){t=t.replace(/^\uFEFF/,"");const first=t.split(/\r?\n/)[0];
+ const d=[",",";","\t"].map(x=>[x,first.split(x).length]).sort((a,b)=>b[1]-a[1])[0][0];
+ const rows=[];let row=[],f="",q=false;
+ for(let i=0;i<t.length;i++){const c=t[i];
+  if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+  else if(c==='"')q=true;
+  else if(c===d){row.push(f);f=""}
+  else if(c==="\n"||c==="\r"){if(c==="\r"&&t[i+1]==="\n")i++;row.push(f);rows.push(row);row=[];f=""}
+  else f+=c}
+ if(f!==""||row.length){row.push(f);rows.push(row)}
+ return rows.filter(r=>r.some(x=>x.trim()!==""))}
+$("imp").onclick=()=>{impRows=[];$("mf").value="";$("ms").textContent="";$("mGo").disabled=true;$("dM").showModal()};
+$("mC").onclick=()=>$("dM").close();
+$("tpl").onclick=()=>{const csv="name,quantity,returnable,category,location,notes\nLaptop (Dell),5,true,Equipment,Cabinet A,Charger included\nBond Paper A4 (ream),40,false,Office supplies,Supply room Shelf 2,\n";
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="items-template.csv";a.click()};
+$("mf").onchange=async()=>{const f=$("mf").files[0];impRows=[];$("mGo").disabled=true;if(!f)return;
+ let rows;try{rows=parseCSV(await f.text())}catch(e){return $("ms").textContent="Could not read that file."}
+ if(rows.length<2)return $("ms").textContent="The file has no item rows.";
+ const h=rows[0].map(x=>x.trim().toLowerCase()),ix=k=>h.indexOf(k);
+ if(ix("name")<0||ix("quantity")<0)return $("ms").textContent='The first row must have the headings "name" and "quantity".';
+ const have=new Set(items.map(i=>i.name.trim().toLowerCase())),seen=new Set(),errs=[];let skipped=0;
+ rows.slice(1).forEach((r,n)=>{const g=k=>ix(k)<0?"":(r[ix(k)]||"").trim(),line=n+2,name=g("name"),qty=g("quantity");
+  if(!name)return errs.push("Row "+line+": name is empty");
+  if(!/^\d+$/.test(qty))return errs.push("Row "+line+" ("+name+"): quantity must be a whole number");
+  const rv=g("returnable").toLowerCase();let ret;
+  if(["","true","yes","y","1","returnable"].includes(rv))ret=true;
+  else if(["false","no","n","0","non-returnable","consumable"].includes(rv))ret=false;
+  else return errs.push("Row "+line+" ("+name+'): returnable must be true or false');
+  const key=name.toLowerCase();if(have.has(key)||seen.has(key)){skipped++;return}seen.add(key);
+  const dm=g("damaged")||"0",un=g("unserviceable")||"0";
+  if(!/^\d+$/.test(dm)||!/^\d+$/.test(un))return errs.push("Row "+line+" ("+name+"): damaged and unserviceable must be whole numbers");
+  if(+dm+ +un>+qty)return errs.push("Row "+line+" ("+name+"): damaged + unserviceable is more than the quantity");
+  const rl=g("reorder_level");if(rl!==""&&!/^\d+$/.test(rl))return errs.push("Row "+line+" ("+name+"): reorder_level must be a whole number");
+  impRows.push({name,quantity:parseInt(qty,10),damaged_qty:+dm,unserviceable_qty:+un,reorder_level:rl===""?null:+rl,unit:(g("unit")||"pcs").slice(0,30),returnable:ret,category:g("category")||null,location:g("location")||null,notes:g("notes")||null})});
+ $("ms").textContent=impRows.length+" item(s) ready to import."+(skipped?"\n"+skipped+" skipped (name already exists or repeated in the file).":"")+(errs.length?"\n"+errs.length+" row(s) have problems and will be left out:\n"+errs.slice(0,10).join("\n")+(errs.length>10?"\n…":""):"");
+ $("mGo").disabled=!impRows.length};
+$("mGo").onclick=async()=>{if(!isStaff||!impRows.length)return;$("mGo").disabled=true;
+ for(let i=0;i<impRows.length;i+=200){const {error}=await sb.from("items").insert(impRows.slice(i,i+200));
+  if(error){$("mGo").disabled=false;return alert("Import stopped: "+error.message)}}
+ const n=impRows.length;impRows=[];$("dM").close();await loadItems();note("✅ Imported "+n+" item(s).")};
+
+/* ---- inventory table actions + CSV export ---- */
+$("itbody").onclick=$("grid").onclick;
+const csvCell=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+function dl(name,rows){const t="\uFEFF"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/csv;charset=utf-8"}));a.download=name;a.click()}
+$("xi").onclick=()=>dl("inventory-report-"+today()+".csv",[["item","unit","type","category","location","total_quantity","with_employees","reserved_or_borrowed","damaged","unserviceable_for_disposal","available","notes"],...items.map(i=>[i.name,i.unit||"pcs",i.returnable?"Returnable":"Non-returnable",i.category,i.location,i.quantity,i.assigned_qty||0,i.quantity-i.available-(i.assigned_qty||0)-(i.damaged_qty||0)-(i.unserviceable_qty||0),i.damaged_qty||0,i.unserviceable_qty||0,i.available,i.notes])]);
+$("xb").onclick=()=>dl("items-backup-"+today()+".csv",[["name","quantity","unit","returnable","category","location","notes","damaged","unserviceable","reorder_level"],...items.map(i=>[i.name,i.quantity,i.unit||"pcs",i.returnable,i.category,i.location,i.notes,i.damaged_qty||0,i.unserviceable_qty||0,i.reorder_level])]);
+$("xr").onclick=()=>dl("requests-"+today()+".csv",[["ref_no","item","quantity","borrower","contact","status","requested","start_date","due_date","released_at","returned_at"],...reqs.flatMap(b=>(b.requests||[]).map(l=>[b.ref_no,l.items?.name,l.quantity,b.borrower_name,b.borrower_contact,l.status,b.created_at,l.start_date,l.due_date,l.released_at,l.returned_at]))]);
+
+/* ---- accountability: items in the possession of employees ---- */
+let assigns=[],rounds=[],checks=[],assignEdit=null,curRound=null,checkId=null,aPlan=[];
+async function loadAssign(){if(!isStaff)return;
+ const {data,error}=await sb.from("assignments").select("*, items(name,unit)").order("employee_name");
+ if(error)return note("Could not load the accountability list: "+error.message);assigns=data;render();loadReceipts()}
+function renderAssign(){const q=$("aq").value.toLowerCase().trim(),sh=$("ah").checked;
+ const l=assigns.filter(a=>(sh||a.status==="active")&&(!q||[a.employee_name,a.employee_contact,a.items?.name,a.serial_no,a.condition].join(" ").toLowerCase().includes(q)));
+ $("acnt").textContent=l.length+" record(s)";
+ lastAs=l;$("aDel").disabled=!selAs.size;$("aDel").textContent="🗑 Delete selected"+(selAs.size?" ("+selAs.size+")":"");$("asAll").checked=l.length>0&&l.every(a=>selAs.has(a.id));
+ $("abody").innerHTML=l.length?l.map(a=>`<tr><td><input type="checkbox" class="asck" data-id="${a.id}" ${selAs.has(a.id)?"checked":""} style="width:auto"></td><td>${esc(a.employee_name)}</td><td>${esc(a.employee_contact)}</td><td>${esc(a.items?.name)}</td><td>${a.quantity} ${esc(a.items?.unit||"pcs")}</td><td>${esc(a.serial_no||"—")}</td><td>${esc(a.condition||"—")}</td><td>${esc(a.assigned_date)}${a.status==="returned"?`<div class="meta">Returned ${esc(a.returned_date||"")}</div>`:""}</td><td class="meta">${rcptFor(a)}</td><td>${a.status==="active"?`<button class="s" data-ae="${a.id}">Edit</button> <button class="s" data-ar="${a.id}">Return to stock</button>`:`<span class="badge neutral">Returned</span>`} <button class="s" data-ah="${a.id}">History</button></td></tr>`).join(""):`<tr><td colspan="10" class="empty">No records yet. Click “+ Assign item” or “Import CSV”.</td></tr>`}
+function fillItemSelect(){$("ai").innerHTML=[...items].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}">${esc(i.name)} (free: ${i.available})</option>`).join("")}
+$("aAdd").onclick=()=>{if(!items.length)return alert("Add the item to the inventory first.");assignEdit=null;$("dAt").textContent="Assign item to employee";fillItemSelect();
+ ["an","aem","asn","ano"].forEach(k=>$(k).value="");$("aqty").value=1;$("acond").value="Good";$("ad").value=today();$("dA").showModal();aSyncUnit()};
+$("aC").onclick=()=>$("dA").close();
+$("aSave").onclick=async()=>{const row={item_id:$("ai").value,employee_name:$("an").value.trim(),employee_contact:$("aem").value.trim(),quantity:parseInt($("aqty").value,10),serial_no:$("asn").value.trim()||null,condition:$("acond").value,assigned_date:$("ad").value||today(),notes:$("ano").value.trim()||null};
+ const it0=items.find(x=>x.id===row.item_id);
+ if(it0?.track_units){if(!$("au").value)return alert("Choose a serial / property number. Add the numbers first under Units.");row.unit_id=$("au").value;row.quantity=1;row.serial_no=null}else{row.unit_id=null}
+ if(!row.item_id||!row.employee_name||!row.employee_contact||isNaN(row.quantity)||row.quantity<1)return alert("Please choose an item and fill in the employee name, email and quantity.");
+ const isNew=!assignEdit,res=isNew?await sb.from("assignments").insert(row).select("id").single():await sb.from("assignments").update(row).eq("id",assignEdit);
+ if(res.error)return alert("Could not save: "+res.error.message);$("dA").close();loadAssign();loadItems();
+ if(isNew&&res.data&&confirm("Assignment saved.\nEmail the employee a link to confirm that they received the item?")){
+  const r2=await sb.rpc("request_assignment_receipts",{p_ids:[res.data.id]});if(r2.error)alert(r2.error.message);else setTimeout(loadReceipts,6000)}};
+$("abody").onclick=async e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
+ if(d.ah)return showHistory(d.ah);
+ if(d.ae){const a=assigns.find(x=>x.id===d.ae);assignEdit=a.id;$("dAt").textContent="Edit assignment";fillItemSelect();$("ai").value=a.item_id;aSyncUnit(a.unit_id);$("an").value=a.employee_name;$("aem").value=a.employee_contact;$("aqty").value=a.quantity;$("asn").value=a.serial_no||"";$("acond").value=a.condition||"Good";$("ad").value=a.assigned_date;$("ano").value=a.notes||"";$("dA").showModal()}
+ if(d.ar){const a=assigns.find(x=>x.id===d.ar);if(confirm("Return "+(a.items?.name||"this item")+" from "+a.employee_name+" to stock?")){
+  const {error}=await sb.from("assignments").update({status:"returned",returned_date:today()}).eq("id",a.id);if(error)alert(error.message);loadAssign();loadItems()}}};
+$("aX").onclick=()=>dl("accountability-"+today()+".csv",[["item","employee_name","employee_contact","quantity","serial_no","condition","date_assigned","status","notes"],...assigns.map(a=>[a.items?.name,a.employee_name,a.employee_contact,a.quantity,a.serial_no,a.condition,a.assigned_date,a.status,a.notes])]);
+
+/* ---- import assignments from CSV ---- */
+$("aImp").onclick=()=>{aPlan=[];$("aif").value="";$("ais").textContent="";$("aiGo").disabled=true;$("dAI").showModal()};
+$("aiC").onclick=()=>$("dAI").close();
+$("aiT").onclick=()=>{const csv="item,employee_name,employee_contact,quantity,serial_no,condition,date_assigned,notes\nLaptop (Dell),Juan Dela Cruz,juan@example.com,1,PN-0001,Good,2024-03-15,\n";
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="assignments-template.csv";a.click()};
+$("aif").onchange=async()=>{const f=$("aif").files[0];aPlan=[];$("aiGo").disabled=true;if(!f)return;
+ let rows;try{rows=parseCSV(await f.text())}catch(e){return $("ais").textContent="Could not read that file."}
+ if(rows.length<2)return $("ais").textContent="The file has no rows.";
+ const h=rows[0].map(x=>x.trim().toLowerCase()),ix=k=>h.indexOf(k);
+ if(["item","employee_name","employee_contact"].some(k=>ix(k)<0))return $("ais").textContent='The first row must have the headings "item", "employee_name" and "employee_contact".';
+ const byName=new Map(items.map(i=>[i.name.trim().toLowerCase(),i])),errs=[];
+ const unitMap=new Map(),tracked=items.filter(i=>i.track_units).map(i=>i.id);
+ if(tracked.length){let from=0;for(;;){const {data,error}=await sb.from("item_units").select("id,item_id,serial_no").in("item_id",tracked).range(from,from+999);if(error)break;(data||[]).forEach(u=>unitMap.set(u.item_id+"|"+u.serial_no.toLowerCase(),u.id));if((data||[]).length<1000)break;from+=1000}}
+ rows.slice(1).forEach((r,n)=>{const g=k=>ix(k)<0?"":(r[ix(k)]||"").trim(),line=n+2,iname=g("item"),en=g("employee_name"),ec=g("employee_contact");
+  const it=byName.get(iname.toLowerCase());
+  if(!it)return errs.push("Row "+line+': item "'+iname+'" is not in the inventory yet');
+  if(!en||!ec)return errs.push("Row "+line+": employee name and contact are required");
+  let unit_id=null;
+  if(it.track_units){const sn=g("serial_no");if(!sn)return errs.push("Row "+line+": "+iname+" needs a serial / property number");
+   unit_id=unitMap.get(it.id+"|"+sn.toLowerCase());if(!unit_id)return errs.push("Row "+line+": number "+sn+" is not registered for "+iname+" (add it under Units first)")}
+  const q=g("quantity")||"1";if(!/^\d+$/.test(q)||+q<1)return errs.push("Row "+line+": quantity must be a whole number of 1 or more");
+  const dt=g("date_assigned");if(dt&&!/^\d{4}-\d{2}-\d{2}$/.test(dt))return errs.push("Row "+line+": date_assigned must look like 2024-03-15");
+  aPlan.push({label:"Row "+line+" ("+en+", "+iname+")",row:{item_id:it.id,unit_id,employee_name:en,employee_contact:ec,quantity:it.track_units?1:parseInt(q,10),serial_no:it.track_units?null:(g("serial_no")||null),condition:g("condition")||null,assigned_date:dt||today(),notes:g("notes")||null}})});
+ $("ais").textContent=aPlan.length+" assignment(s) ready to import."+(errs.length?"\n"+errs.length+" row(s) have problems and will be left out:\n"+errs.slice(0,10).join("\n")+(errs.length>10?"\n…":""):"");
+ $("aiGo").disabled=!aPlan.length};
+$("aiGo").onclick=async()=>{if(!isStaff||!aPlan.length)return;$("aiGo").disabled=true;let ok=0;const fail=[];
+ for(const p of aPlan){$("ais").textContent="Importing… "+ok+" of "+aPlan.length;const {error}=await sb.from("assignments").insert(p.row);if(error)fail.push(p.label+": "+error.message);else ok++}
+ aPlan=[];$("ais").textContent="Imported "+ok+" assignment(s)."+(fail.length?"\n"+fail.length+" failed:\n"+fail.slice(0,10).join("\n"):"");
+ await loadAssign();await loadItems()};
+
+/* ---- inventory ---- */
+async function loadRounds(){if(!isStaff)return;
+ const {data,error}=await sb.from("inventory_rounds").select("*").order("created_at",{ascending:false});
+ if(error)return note("Could not load inventory rounds: "+error.message);
+ rounds=data;if(!curRound||!rounds.find(r=>r.id===curRound))curRound=rounds[0]?.id||null;await loadChecks()}
+async function loadChecks(){if(!isStaff)return;if(!curRound){checks=[];return render()}
+ const {data,error}=await sb.from("inventory_checks").select("*, assignments(employee_name,employee_contact,quantity,serial_no,unit_id,items(name,unit)), item_units(serial_no,condition,location,items(name,unit))").eq("round_id",curRound);
+ if(error)note("Could not load inventory checks: "+error.message);
+ checks=(data||[]).map(c=>c.assignments?c:{...c,assignments:c.item_units?{employee_name:"In stock / storage",employee_contact:"",quantity:1,serial_no:c.item_units.serial_no,unit_id:c.unit_id,items:c.item_units.items}:null});render()}
+function renderRounds(){
+ $("rsel").innerHTML=rounds.length?rounds.map(r=>`<option value="${r.id}"${r.id===curRound?" selected":""}>${esc(r.title)} (${r.status})</option>`).join(""):"<option>No inventory yet</option>";
+ const r=rounds.find(x=>x.id===curRound);$("rStart").disabled=rounds.some(x=>x.status==="open");$("rClose").disabled=!r||r.status!=="open";$("rX").disabled=!r;$("rDel").disabled=!r;
+ if(!r){$("rinfo").textContent="No inventory has been started yet. Click “Start inventory” to notify every accountable employee. It also starts automatically every January 2 and July 2.";$("rbody").innerHTML="";return}
+ const done=checks.filter(c=>c.result!=="pending").length;
+ $("rinfo").textContent=r.title+": deadline "+r.due_date+". "+done+" of "+checks.length+" item(s) checked."+(r.scope_item_ids?" Counting only: "+r.scope_item_ids.map(id=>items.find(i=>i.id===id)?.name||"item").join(", ")+".":" Counting all items.")+(r.status==="closed"?" This round is closed.":"");
+ const rows=[...checks].sort((a,b)=>(a.assignments?.employee_name||"").localeCompare(b.assignments?.employee_name||"")),cl={pending:"low",verified:"ok",missing:"out",damaged:"low",unserviceable:"out"};
+ $("rbody").innerHTML=rows.length?rows.map(c=>{const a=c.assignments||{};return `<tr><td>${esc(a.employee_name)}</td><td>${esc(a.employee_contact)}</td><td>${esc(a.items?.name)}</td><td>${a.quantity} ${esc(a.items?.unit||"pcs")}</td><td>${esc(a.serial_no||"—")}</td><td><span class="badge ${cl[c.result]}">${resLabel(c.result)}</span></td><td class="meta" style="white-space:normal;min-width:120px">${esc(c.remarks||"")}</td><td>${c.checked_at?esc(c.checked_at.slice(0,10)):"—"}</td><td>${r.status==="open"?`<button class="p s" data-k="${c.id}">Record result</button>`:""}</td></tr>`}).join(""):`<tr><td colspan="9" class="empty">No items in this round.</td></tr>`}
+$("rsel").onchange=()=>{curRound=$("rsel").value;loadChecks()};
+$("rStart").onclick=()=>{$("rsScope").value="all";$("rsItemRow").hidden=true;$("rsItem").innerHTML=[...items].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}">${esc(i.name)}</option>`).join("");$("rt").value="";$("rd").min=today();$("rd").value=new Date(Date.now()+30*864e5).toISOString().slice(0,10);$("dRS").showModal()};
+$("rsC").onclick=()=>$("dRS").close();
+$("rsScope").onchange=()=>{$("rsItemRow").hidden=$("rsScope").value!=="one"};
+$("rsGo").onclick=async()=>{const due=$("rd").value;if(!due)return alert("Choose a deadline.");
+ if($("rsScope").value==="one"&&!$("rsItem").value)return alert("Choose the item to count.");
+ if(!assigns.some(a=>a.status==="active")&&!items.some(i=>i.track_units))return alert("No items are assigned to employees yet. Add them under Accountability first.");
+ $("rsGo").disabled=true;const {data,error}=await sb.rpc("start_inventory_round",{p_due:due,p_title:$("rt").value.trim()||null,p_items:$("rsScope").value==="one"?[$("rsItem").value]:null});$("rsGo").disabled=false;
+ if(error)return alert(error.message);$("dRS").close();curRound=data;await loadRounds();note("✅ Inventory started. Each accountable employee is being notified. Check the Notices log in Supabase (notifications table) for delivery results.")};
+$("rClose").onclick=async()=>{const r=rounds.find(x=>x.id===curRound);if(!r)return;const left=checks.filter(c=>c.result==="pending").length;
+ if(!confirm("Close this round?"+(left?" "+left+" item(s) are still unchecked and will be listed as not shown.":"")+" A report of unreturned items and unverified items will be generated."))return;
+ const {error}=await sb.from("inventory_rounds").update({status:"closed",closed_at:new Date().toISOString()}).eq("id",r.id);if(error)return alert(error.message);await loadRounds();showReport()};
+$("rbody").onclick=e=>{const b=e.target.closest("button");if(!b||!b.dataset.k)return;checkId=b.dataset.k;const c=checks.find(x=>x.id===checkId),a=c.assignments||{};
+ $("dKm").textContent=(a.employee_name||"")+": "+(a.items?.name||"")+" x"+(a.quantity||"");$("kr").value=c.result==="pending"?"verified":c.result;$("kn").value=c.remarks||"";$("dK").showModal()};
+$("kC").onclick=()=>$("dK").close();
+$("kSave").onclick=async()=>{const {error}=await sb.from("inventory_checks").update({result:$("kr").value,remarks:$("kn").value.trim()||null,checked_at:new Date().toISOString()}).eq("id",checkId);
+ if(error)return alert(error.message);$("dK").close();loadChecks()};
+$("rX").onclick=()=>{const r=rounds.find(x=>x.id===curRound);dl("inventory-results-"+(r?.year||today())+".csv",[["employee_name","employee_contact","item","quantity","serial_no","result","remarks","checked_at"],...checks.map(c=>{const a=c.assignments||{};return[a.employee_name,a.employee_contact,a.items?.name,a.quantity,a.serial_no,resLabel(c.result),c.remarks,c.checked_at]})])};
+
+/* ---- live camera for the required photos (computer webcam or phone camera) ---- */
+let camStream=null,camFacing="environment";
+function camStop(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}
+ $("cam").srcObject=null;$("cam").hidden=true;$("camSnap").hidden=true;$("camFlip").hidden=true}
+async function camStart(){camStop();$("camMsg").textContent="";
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$("camMsg").textContent="This browser cannot open the camera here. Use the upload option below.";$("camOn").hidden=false;return}
+ try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:camFacing},width:{ideal:1280},height:{ideal:960}},audio:false});
+  $("cam").hidden=false;$("cam").muted=true;$("cam").setAttribute("playsinline","");$("cam").srcObject=camStream;try{await $("cam").play()}catch(_){}$("phv").hidden=true;phBlob=null;$("sP").disabled=true;
+  $("camSnap").hidden=false;$("camFlip").hidden=false;$("camOn").hidden=true;$("camRe").hidden=true}
+ catch(e){$("camOn").hidden=false;
+  $("camMsg").textContent=e.name==="NotAllowedError"?"Camera access was blocked. Click the camera icon in the address bar, allow it for this site, then click Open camera. Or upload a photo below.":"No camera was found, or another app is using it. You can upload a photo below."}}
+$("camOn").onclick=camStart;
+$("camRe").onclick=camStart;
+$("camFlip").onclick=()=>{camFacing=camFacing==="environment"?"user":"environment";camStart()};
+$("camSnap").onclick=()=>{const v=$("cam");if(!v.videoWidth)return alert("The camera is still starting. Wait a moment and try again, or use the upload option.");
+ const sc=Math.min(1,1280/Math.max(v.videoWidth,v.videoHeight)),c=document.createElement("canvas");
+ c.width=Math.round(v.videoWidth*sc);c.height=Math.round(v.videoHeight*sc);c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+ c.toBlob(b=>{phBlob=b;$("phv").src=URL.createObjectURL(b);$("phv").hidden=false;camStop();$("camRe").hidden=false;$("camOn").hidden=true;$("sP").disabled=false},"image/jpeg",.85)};
+
+/* ---- installable app (PWA) ---- */
+let deferredInstall=null;
+const isStandalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstall=e;if(!isStandalone)$("inst").hidden=false});
+window.addEventListener("appinstalled",()=>{$("inst").hidden=true;deferredInstall=null});
+if(isIOS&&!isStandalone)$("inst").hidden=false;
+$("rl").onclick=()=>location.reload();
+$("inst").onclick=async()=>{
+ if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$("inst").hidden=true}
+ else alert("To install on iPhone or iPad: tap the Share button in Safari, then choose “Add to Home Screen”.")};
+if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+
+/* ---- exceptions report: unreturned borrowed items + accountable items not verified ---- */
+let repData=null;
+const resLabel=r=>r==="unserviceable"?"unserviceable: for disposal":r;
+const sortName=(a,b)=>(a.name||"").localeCompare(b.name||"");
+function buildReport(){const t=today(),R=rounds.find(x=>x.id===curRound)||null;
+ const ug=new Map();
+ reqs.forEach(b=>(b.requests||[]).forEach(l=>{if(l.status==="released"&&l.items?.returnable){
+  const k=(b.borrower_contact||"").trim().toLowerCase()||b.id;
+  if(!ug.has(k))ug.set(k,{name:b.borrower_name,contact:b.borrower_contact,lines:[],due:null});
+  const g=ug.get(k);g.lines.push(l.quantity+" "+(l.items?.unit||"pcs")+" × "+(l.items?.name||"item"));if(l.due_date&&(!g.due||l.due_date<g.due))g.due=l.due_date}}));
+ const un=[...ug.values()].sort(sortName).map(g=>{const days=g.due&&g.due<t?Math.round((Date.parse(t)-Date.parse(g.due))/864e5):0;
+  return{...g,status:g.due&&g.due<t?"Overdue by "+days+" day"+(days===1?"":"s"):"Not yet due"}});
+ const closed=R&&R.status==="closed",ng=new Map();
+ checks.filter(c=>["pending","missing"].includes(c.result)).forEach(c=>{const a=c.assignments||{},k=(a.employee_contact||"").trim().toLowerCase();
+  if(!ng.has(k))ng.set(k,{name:a.employee_name,contact:a.employee_contact,lines:[]});
+  ng.get(k).lines.push((a.quantity||1)+" × "+(a.items?.name||"item")+(a.serial_no?" (Serial "+a.serial_no+")":"")+" — "+(c.result==="missing"?"reported missing":closed?"did not show for verification":"not yet verified"))});
+ const disp=[],seenA=new Set(),unitSeen=new Set();
+ (unservUnits||[]).forEach(u=>{unitSeen.add(u.id);const as=assigns.find(a=>a.status==="active"&&a.unit_id===u.id);
+  disp.push({item:u.items?.name||"item",qty:1,serial:u.serial_no,holder:as?as.employee_name+" ("+as.employee_contact+")":"In stock / storage",location:u.location||"",remarks:u.notes||"Unit recorded as unserviceable"})});
+ items.filter(i=>(i.unserviceable_qty||0)>0&&!i.track_units).forEach(i=>disp.push({item:i.name,qty:i.unserviceable_qty,serial:"",holder:"In stock / storage",location:i.location||"",remarks:i.notes||""}));
+ checks.filter(c=>c.result==="unserviceable"&&!unitSeen.has(c.unit_id||c.assignments?.unit_id)).forEach(c=>{const a=c.assignments||{};seenA.add(c.assignment_id);
+  disp.push({item:a.items?.name||"item",qty:a.quantity||1,serial:a.serial_no||"",holder:(a.employee_name||"")+" ("+(a.employee_contact||"")+")",location:"",remarks:c.remarks||"Found unserviceable during the inventory"})});
+ assigns.filter(a=>a.status==="active"&&a.condition==="Unserviceable"&&!seenA.has(a.id)&&!unitSeen.has(a.unit_id)).forEach(a=>
+  disp.push({item:a.items?.name||"item",qty:a.quantity,serial:a.serial_no||"",holder:a.employee_name+" ("+a.employee_contact+")",location:"",remarks:a.notes||"Condition recorded as unserviceable"}));
+ disp.sort((x,y)=>(x.item||"").localeCompare(y.item||""));
+ return{R,un,nv:[...ng.values()].sort(sortName),disp,closed,date:t}}
+async function showReport(){await loadReqs();await loadChecks();unservUnits=(await sb.from("item_units").select("id,serial_no,location,notes,items(name)").eq("condition","Unserviceable").limit(1000)).data||[];repData=buildReport();const d=repData;
+ const nu=d.un.reduce((a,g)=>a+g.lines.length,0),nn=d.nv.reduce((a,g)=>a+g.lines.length,0);
+ $("repT").textContent="Inventory report"+(d.R?": "+d.R.title:"");
+ $("repS").textContent="Generated "+d.date+". "+d.un.length+" borrower(s) have not returned "+nu+" item line(s). "+(d.R?d.nv.length+" accountable employee(s) have "+nn+" item(s) "+(d.closed?"that did not show for verification or were reported missing.":"not yet verified or reported missing (the inventory is still open)."):"No inventory round is selected, so section 2 is empty.")+" "+d.disp.reduce((a,x)=>a+x.qty,0)+" unserviceable unit(s) are for disposal.";
+ $("repA").innerHTML=d.un.length?d.un.map(g=>`<tr><td>${esc(g.name)}</td><td>${esc(g.contact)}</td><td style="white-space:normal">${g.lines.map(esc).join("<br>")}</td><td>${esc(g.due||"—")}</td><td><span class="badge ${g.status.startsWith("Overdue")?"out":"low"}">${esc(g.status)}</span></td></tr>`).join(""):`<tr><td colspan="5" class="empty">Everyone has returned their borrowed items.</td></tr>`;
+ $("repB").innerHTML=d.nv.length?d.nv.map(g=>`<tr><td>${esc(g.name)}</td><td>${esc(g.contact)}</td><td style="white-space:normal">${g.lines.map(esc).join("<br>")}</td></tr>`).join(""):`<tr><td colspan="3" class="empty">${d.R?"All accountable items have been verified.":"Select or start an inventory round to see this list."}</td></tr>`;
+ $("repD").innerHTML=d.disp.length?d.disp.map(x=>`<tr><td>${esc(x.item)}</td><td>${x.qty}</td><td>${esc(x.serial||"—")}</td><td>${esc(x.holder)}</td><td>${esc(x.location||"—")}</td><td style="white-space:normal">${esc(x.remarks||"")}</td><td><span class="badge out">For disposal</span></td></tr>`).join(""):`<tr><td colspan="7" class="empty">No unserviceable items.</td></tr>`;
+ $("dRep").showModal();loadRepLog()}
+$("rRep").onclick=showReport;$("repC").onclick=()=>$("dRep").close();
+$("repX").onclick=()=>{if(!repData)return;const d=repData,rows=[["list","name","contact","items","due_date","status"]];
+ d.un.forEach(g=>rows.push(["Not returned",g.name,g.contact,g.lines.join("; "),g.due||"",g.status]));
+ d.nv.forEach(g=>rows.push(["Not verified",g.name,g.contact,g.lines.join("; "),"",d.closed?"closed round":"open round"]));
+ d.disp.forEach(x=>rows.push(["For disposal",x.holder,"",x.qty+" × "+x.item+(x.serial?" (Serial "+x.serial+")":""),"",x.remarks||"unserviceable"]));
+ dl("inventory-count-report-"+d.date+".csv",rows)};
+$("repP").onclick=()=>{if(!repData)return;const d=repData,tb=(h,r)=>`<table><thead><tr>${h.map(x=>"<th>"+x+"</th>").join("")}</tr></thead><tbody>${r||'<tr><td colspan="9">None</td></tr>'}</tbody></table>`;
+ const a=d.un.map(g=>`<tr><td>${esc(g.name)}</td><td>${esc(g.contact)}</td><td>${g.lines.map(esc).join("<br>")}</td><td>${esc(g.due||"—")}</td><td>${esc(g.status)}</td></tr>`).join("");
+ const b=d.nv.map(g=>`<tr><td>${esc(g.name)}</td><td>${esc(g.contact)}</td><td>${g.lines.map(esc).join("<br>")}</td></tr>`).join("");
+ const c=d.disp.map(x=>`<tr><td>${esc(x.item)}</td><td>${x.qty}</td><td>${esc(x.serial||"—")}</td><td>${esc(x.holder)}</td><td>${esc(x.location||"—")}</td><td>${esc(x.remarks||"")}</td></tr>`).join("");
+ const w=window.open("","_blank");if(!w)return alert("Please allow pop-ups to print.");
+ w.document.write(`<!DOCTYPE html><title>Inventory report</title><style>body{font:14px system-ui,sans-serif;margin:24px}table{border-collapse:collapse;width:100%;margin:6px 0 20px}th,td{border:1px solid #999;padding:6px;text-align:left;vertical-align:top}th{background:#eee}</style><h2>MFRDC Inventory Report${d.R?" ("+esc(d.R.title)+")":""}</h2><p>Generated ${esc(d.date)}</p><h3>1. Borrowed items not yet returned</h3>${tb(["Borrower","Contact","Items not returned","Due date","Status"],a)}<h3>2. Accountable items not verified</h3>${tb(["Accountable employee","Contact","Items"],b)}<h3>3. Unserviceable items: for disposal</h3>${tb(["Item","Qty","Serial / property no.","Held by","Location","Remarks"],c)}`);
+ w.document.close();w.focus();w.print()};
+
+/* ---- email reminders to everyone on the exceptions report ---- */
+async function loadRepLog(){
+ const {data,error}=await sb.from("notifications").select("recipient,status,error,created_at").eq("kind","exception_reminder").order("created_at",{ascending:false}).limit(15);
+ if(error)return;
+ $("repL").innerHTML=data.length?data.map(n=>`<tr><td>${esc(n.recipient)}</td><td><span class="badge ${n.status==="sent"?"ok":n.status==="skipped"?"low":"out"}">${n.status==="sent"?"Sent":n.status==="skipped"?"No email (in person)":"Failed"}</span>${n.error?`<div class="meta" style="white-space:normal">${esc(n.error)}</div>`:""}</td><td>${esc(n.created_at.slice(0,16).replace("T"," "))}</td></tr>`).join(""):`<tr><td colspan="3" class="empty">No reminders sent yet.</td></tr>`}
+$("repR").onclick=loadRepLog;
+$("repM").onclick=async()=>{if(!repData)return;const d=repData,keys=new Map();
+ [...d.un,...d.nv].forEach(g=>{const k=(g.contact||"").trim().toLowerCase();if(k)keys.set(k,g.contact)});
+ const all=[...keys.values()],mail=all.filter(c=>c.includes("@")).length,txt=all.length-mail;
+ if(!all.length)return alert("There is no one on the report to remind.");
+ if(!confirm("Send a reminder to "+all.length+" person(s)?\n"+mail+" by email"+(txt?", "+txt+" by text message (needs the SMS service)":"")+".\nEach person gets ONE message listing all their items."))return;
+ $("repM").disabled=true;
+ const {error}=await sb.rpc("send_exception_reminders",{p_round:d.R?d.R.id:null});
+ $("repM").disabled=false;
+ if(error)return alert("Could not send: "+error.message);
+ $("repL").innerHTML='<tr><td colspan="3" class="empty">Sending… results appear here in a few seconds.</td></tr>';
+ setTimeout(loadRepLog,6000);setTimeout(loadRepLog,16000)};
+
+/* ---- delete options (staff) ---- */
+let selItems=new Set(),selReqs=new Set(),selAs=new Set(),lastTl=[],lastRows=[],lastAs=[];
+const typedOK=()=>prompt("This cannot be undone. Type DELETE to confirm.")==="DELETE";
+function bindSelect(bodyId,cls,allId,set,rows){
+ $(bodyId).addEventListener("change",e=>{const c=e.target.closest("."+cls);if(!c)return;c.checked?set.add(c.dataset.id):set.delete(c.dataset.id);render()});
+ $(allId).onchange=()=>{rows().forEach(x=>$(allId).checked?set.add(x.id):set.delete(x.id));render()}}
+bindSelect("itbody","itck","itAll",selItems,()=>lastTl);
+bindSelect("reqs","rqck","rqAll",selReqs,()=>lastRows);
+bindSelect("abody","asck","asAll",selAs,()=>lastAs);
+
+$("itDel").onclick=async()=>{const ids=[...selItems];if(!ids.length)return;
+ if(!confirm("Permanently delete "+ids.length+" item(s)?\nThis also deletes their borrow requests and employee assignments."))return;
+ if(!typedOK())return;
+ const {data,error}=await sb.rpc("delete_items",{p_ids:ids});if(error)return alert(error.message);
+ if(data&&data.length)await sb.storage.from("item-images").remove(data);
+ selItems.clear();loadItems();loadReqs();loadAssign()};
+
+$("rqDel").onclick=async()=>{const ids=[...selReqs];if(!ids.length)return;
+ if(!confirm("Permanently delete "+ids.length+" request(s), including their photos and notices?"))return;
+ if(!typedOK())return;
+ const hasSupply=reqs.some(b=>selReqs.has(b.id)&&(b.requests||[]).some(l=>l.status==="released"&&l.items?.returnable===false));
+ const restore=hasSupply&&confirm("Some of these requests already released non-returnable items (such as office supplies).\nPut those quantities back into stock?\n\nOK = put back into stock\nCancel = leave stock as it is");
+ const {data,error}=await sb.rpc("delete_request_batches",{p_ids:ids,p_restore:restore});if(error)return alert(error.message);
+ if(data&&data.length)await sb.storage.from("photos").remove(data);
+ selReqs.clear();loadItems();loadReqs()};
+
+$("aDel").onclick=async()=>{const ids=[...selAs];if(!ids.length)return;
+ if(!confirm("Permanently delete "+ids.length+" assignment record(s)? Their inventory results are deleted too."))return;
+ if(!typedOK())return;
+ const {error}=await sb.from("assignments").delete().in("id",ids);if(error)return alert(error.message);
+ selAs.clear();loadAssign();loadItems();loadChecks()};
+
+$("rDel").onclick=async()=>{const r=rounds.find(x=>x.id===curRound);if(!r)return;
+ if(!confirm('Permanently delete "'+r.title+'" and all of its results?'))return;
+ if(!typedOK())return;
+ const {error}=await sb.from("inventory_rounds").delete().eq("id",r.id);if(error)return alert(error.message);
+ curRound=null;loadRounds()};
+
+/* ---- live camera for the item picture (laptop webcam or phone camera) ---- */
+let fStream=null,fFacing="environment";
+function fcamStop(){if(fStream){fStream.getTracks().forEach(t=>t.stop());fStream=null}
+ $("fcam").srcObject=null;$("fcam").hidden=true;$("fcamSnap").hidden=true;$("fcamFlip").hidden=true}
+async function fcamStart(){fcamStop();$("fcamMsg").textContent="";
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$("fcamMsg").textContent="This browser cannot open the camera here. Use the upload option below.";return}
+ try{fStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:fFacing},width:{ideal:1280},height:{ideal:960}},audio:false});
+  $("fcam").hidden=false;$("fcam").muted=true;$("fcam").setAttribute("playsinline","");$("fcam").srcObject=fStream;try{await $("fcam").play()}catch(_){}$("fpv").hidden=true;
+  $("fcamSnap").hidden=false;$("fcamFlip").hidden=false;$("fcamOn").hidden=true;$("fcamRe").hidden=true}
+ catch(e){$("fcamOn").hidden=false;
+  $("fcamMsg").textContent=e.name==="NotAllowedError"?"Camera access was blocked. Click the camera icon in the address bar, allow it for this site, then click Open camera. Or upload a picture below.":"No camera was found, or another app is using it. You can upload a picture below."}}
+$("fcamOn").onclick=fcamStart;$("fcamRe").onclick=fcamStart;
+$("fcamFlip").onclick=()=>{fFacing=fFacing==="environment"?"user":"environment";fcamStart()};
+$("fcamSnap").onclick=()=>{const v=$("fcam");if(!v.videoWidth)return alert("The camera is still starting. Wait a moment and try again, or use the upload option.");
+ const sc=Math.min(1,900/Math.max(v.videoWidth,v.videoHeight)),c=document.createElement("canvas");
+ c.width=Math.round(v.videoWidth*sc);c.height=Math.round(v.videoHeight*sc);c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+ c.toBlob(b=>{fFile=b;$("fpv").src=URL.createObjectURL(b);$("fpv").hidden=false;$("frm").checked=false;fcamStop();$("fcamRe").hidden=false;$("fcamOn").hidden=true},"image/jpeg",.85)};
+$("dI").addEventListener("close",()=>{fcamStop();$("fcamOn").hidden=false;$("fcamRe").hidden=true;$("fcamMsg").textContent=""});
+
+/* ---- employees confirm the items they receive ---- */
+let receipts=[];
+const fmtD=t=>String(t).slice(0,10);
+async function loadReceipts(){if(!isStaff)return;
+ const {data}=await sb.from("receipts").select("id,kind,batch_id,assignment_ids,confirmed_at,confirmed_name,created_at");
+ receipts=data||[];render()}
+function rcptFor(a){const rs=receipts.filter(r=>r.kind==="assignment"&&(r.assignment_ids||[]).includes(a.id)&&(!a.holder_since||r.created_at>=a.holder_since)).sort((x,y)=>y.created_at.localeCompare(x.created_at));
+ const c=rs.find(r=>r.confirmed_at);if(c)return "✓ "+esc(c.confirmed_name)+"<br>"+fmtD(c.confirmed_at);
+ return rs.length?"Awaiting confirmation<br>(sent "+fmtD(rs[0].created_at)+")":"Not requested"}
+function rcptBatch(b){const r=receipts.find(x=>x.kind==="borrow"&&x.batch_id===b.id);if(!r)return"";
+ return `<div class="meta">${r.confirmed_at?"✓ Received: "+esc(r.confirmed_name)+" ("+fmtD(r.confirmed_at)+")":"Awaiting receipt confirmation"}</div>`}
+$("aRcpt").onclick=async()=>{const ids=[...selAs];if(!ids.length)return alert("Tick the assignment records first.");
+ if(!confirm("Send a confirmation email for "+ids.length+" record(s)?\nEach employee gets ONE email listing their items."))return;
+ const {data,error}=await sb.rpc("request_assignment_receipts",{p_ids:ids});if(error)return alert(error.message);
+ alert(data?data+" confirmation email(s) are being sent.":"Nothing to send: those items are already confirmed or no longer active.");
+ setTimeout(loadReceipts,6000)};
+
+/* the page an employee or borrower sees when they open the link from the email */
+async function receiptMode(token){
+ document.querySelector("header").hidden=true;["tabs","note","v1"].forEach(i=>$(i).hidden=true);$("vr").hidden=false;
+ const {data,error}=await sb.rpc("get_receipt",{p_token:token});
+ if(error||!data){$("vrInfo").textContent="This confirmation link is not valid.";$("vrForm").hidden=true;return}
+ $("vrInfo").textContent=(data.ref_no?"Reference no. "+data.ref_no+". ":"")+(data.kind==="borrow"?"These items were released to you:":"These items are recorded under your accountability:");
+ $("vrList").innerHTML=(data.items||[]).map(i=>`<div style="margin:4px 0">• ${i.quantity} ${esc(i.unit||"pcs")} × <b>${esc(i.name)}</b>${i.serial_no?" <span class='meta'>(Serial / property no. "+esc(i.serial_no)+")</span>":""}${i.returnable&&i.due_date?" <span class='meta'>(return by "+esc(i.due_date)+")</span>":""}</div>`).join("")||"<div class='meta'>No items listed.</div>";
+ const done=(n,t)=>{$("vrForm").hidden=true;$("vrDone").hidden=false;$("vrDone").textContent="✅ Receipt confirmed by "+n+" on "+fmtD(t)+". Thank you."};
+ if(data.confirmed_at)return done(data.confirmed_name,data.confirmed_at);
+ $("vrName").value=data.name||"";
+ $("vrGo").onclick=async()=>{const n=$("vrName").value.trim();if(!n)return alert("Please type your full name.");
+  $("vrGo").disabled=true;const r=await sb.rpc("confirm_receipt",{p_token:token,p_name:n});$("vrGo").disabled=false;
+  if(r.error)return alert(r.error.message);
+  const g=await sb.rpc("get_receipt",{p_token:token});done(g.data?.confirmed_name||n,g.data?.confirmed_at||new Date().toISOString())}}
+
+/* ---- dashboard ---- */
+function renderDash(){const t=today(),stt=b=>batchStatus(b);
+ const pend=reqs.filter(b=>stt(b)==="pending"),appr=reqs.filter(b=>stt(b)==="approved"),bor=reqs.filter(b=>stt(b)==="borrowed");
+ const over=[];bor.forEach(b=>{const L=(b.requests||[]).filter(l=>l.status==="released"&&l.items?.returnable&&l.due_date);
+  const due=L.map(l=>l.due_date).sort()[0];if(due&&due<t)over.push({b,L,due,days:Math.round((Date.parse(t)-Date.parse(due))/864e5)})});
+ const low=items.filter(i=>i.reorder_level!=null&&i.available<=i.reorder_level),bad=items.filter(i=>(i.damaged_qty||0)+(i.unserviceable_qty||0)>0);
+ const dm=items.reduce((a,i)=>a+(i.damaged_qty||0),0),un=items.reduce((a,i)=>a+(i.unserviceable_qty||0),0);
+ const wait=receipts.filter(r=>!r.confirmed_at).length,R=rounds.find(r=>r.status==="open");
+ const lb=lastBackup(),ago=lb?Math.floor((Date.now()-Date.parse(lb))/864e5):null,lbl=lb?(ago===0?"Today":ago+" day"+(ago===1?"":"s")+" ago"):"Never";
+ const ab=backups.find(x=>x.status==="ok"),aago=ab?Math.floor((Date.now()-Date.parse(ab.at))/864e5):null,albl=ab?(aago===0?"Today":aago+" day"+(aago===1?"":"s")+" ago"):"Never";
+ const prog=R?(curRound===R.id?checks.filter(c=>c.result!=="pending").length+" / "+checks.length:"Open"):"None open";
+ const tile=(label,n,go,cls)=>`<div class="card" data-go="${go}" style="cursor:pointer"><div class="meta">${label}</div><div class="${cls||""}" style="font-size:28px;font-weight:700">${n}</div></div>`;
+ $("dTiles").innerHTML=tile("Pending approval",pend.length,2,pend.length?"low":"")+tile("Ready for release",appr.length,2)+tile("Borrowed now",bor.length,2)+tile("Overdue",over.length,2,over.length?"out":"")+tile("Low stock items",low.length,3,low.length?"low":"")+tile("Damaged units",dm,3,dm?"low":"")+tile("Unserviceable (for disposal)",un,3,un?"out":"")+tile("Receipts awaiting confirmation",wait,4)+tile("Inventory",prog,5)+(isAdmin?tile("Last full backup (this device)",lbl,6,(ago===null||ago>7)?"out":"")+tile("Last automatic backup",albl,8,(aago===null||aago>35)?"out":""):"");
+ const none=(n,m)=>`<tr><td colspan="${n}" class="empty">${m}</td></tr>`;
+ $("dOver").innerHTML=over.length?over.sort((x,y)=>y.days-x.days).map(o=>`<tr><td>${esc(o.b.borrower_name)}</td><td>${esc(o.b.borrower_contact)}</td><td style="white-space:normal">${o.L.map(l=>l.quantity+" "+(l.items?.unit||"pcs")+" × "+esc(l.items?.name||"")).join("<br>")}</td><td>${esc(o.due)}</td><td><span class="badge out">${o.days}</span></td></tr>`).join(""):none(5,"Nothing is overdue.");
+ $("dPend").innerHTML=pend.length?pend.slice().sort((x,y)=>x.created_at.localeCompare(y.created_at)).slice(0,10).map(b=>{const L=b.requests||[],s0=L.map(l=>l.start_date).filter(Boolean).sort()[0],d0=L.map(l=>l.due_date).filter(Boolean).sort()[0];
+  return `<tr><td>${esc(b.borrower_name)}</td><td style="white-space:normal">${L.map(l=>l.quantity+" "+(l.items?.unit||"pcs")+" × "+esc(l.items?.name||"")).join("<br>")}</td><td>${esc(b.created_at.slice(0,10))}</td><td>${d0?esc(s0||"")+" → "+esc(d0):"None needed"}</td></tr>`}).join(""):none(4,"No requests are waiting.");
+ $("dLow").innerHTML=low.length?low.map(i=>`<tr><td>${esc(i.name)}</td><td><span class="badge low">${i.available}</span></td><td>${i.reorder_level}</td></tr>`).join(""):none(3,"No items are below their reorder level. Set a reorder level when editing an item.");
+ $("dBad").innerHTML=bad.length?bad.map(i=>`<tr><td>${esc(i.name)}</td><td>${i.damaged_qty||0}</td><td>${i.unserviceable_qty||0}</td></tr>`).join(""):none(3,"No damaged or unserviceable items.")}
+$("dTiles").onclick=e=>{const c=e.target.closest("[data-go]");if(c)show(+c.dataset.go)};
+
+/* ---- activity log (admins) ---- */
+let logs=[];
+async function loadActivity(){if(!isAdmin)return;
+ const {data,error}=await sb.from("activity_log").select("*").order("at",{ascending:false}).limit(500);
+ if(error)return note("Could not load the activity log: "+error.message);logs=data;renderLog()}
+function renderLog(){const q=$("lq").value.toLowerCase().trim(),l=logs.filter(x=>!q||[x.actor_email,x.action,x.summary].join(" ").toLowerCase().includes(q));
+ $("lc").textContent=l.length+" of "+logs.length+" recent entries (the latest 500 are loaded)";
+ $("lbody").innerHTML=l.length?l.map(x=>`<tr><td>${esc(new Date(x.at).toLocaleString())}</td><td>${esc(x.actor_email||"")}</td><td>${esc(x.action)}</td><td style="white-space:normal">${esc(x.summary||"")}</td></tr>`).join(""):`<tr><td colspan="4" class="empty">No entries.</td></tr>`}
+$("lq").addEventListener("input",renderLog);$("lRef").onclick=loadActivity;
+$("lX").onclick=()=>dl("activity-log-"+today()+".csv",[["when","who","action","details"],...logs.map(x=>[x.at,x.actor_email,x.action,x.summary])]);
+
+/* ---- staff roles (admins) ---- */
+async function loadStaffList(){if(!isAdmin)return;
+ const {data,error}=await sb.rpc("list_staff");if(error)return note("Could not load the staff list: "+error.message);
+ $("stbody").innerHTML=data.map(s=>`<tr><td>${esc(s.email)}</td><td><select data-sr="${s.user_id}"><option value="staff"${s.role==="staff"?" selected":""}>Staff</option><option value="admin"${s.role==="admin"?" selected":""}>Admin</option></select></td><td><button class="d s" data-sx="${s.user_id}">Remove</button></td></tr>`).join("")}
+$("stbody").onchange=async e=>{const t=e.target;if(!t.dataset.sr)return;const {error}=await sb.rpc("set_staff_role",{p_user:t.dataset.sr,p_role:t.value});if(error)alert(error.message);loadStaffList()};
+$("stbody").onclick=async e=>{const b=e.target.closest("button");if(!b||!b.dataset.sx)return;
+ if(!confirm("Remove this person from the staff list? They will no longer be able to use staff features."))return;
+ const {error}=await sb.rpc("remove_staff",{p_user:b.dataset.sx});if(error)alert(error.message);loadStaffList()};
+$("stAdd").onclick=async()=>{const em=$("stEmail").value.trim();if(!em)return alert("Type the staff email.");
+ const {error}=await sb.rpc("add_staff",{p_email:em,p_role:$("stRole").value});if(error)return alert(error.message);$("stEmail").value="";loadStaffList()};
+
+/* ---- assignment history ---- */
+async function showHistory(id){const a=assigns.find(x=>x.id===id);if(!a)return;
+ let q=sb.from("assignment_events").select("*").eq("item_id",a.item_id).order("at",{ascending:false});if(a.serial_no)q=q.eq("serial_no",a.serial_no);
+ const {data,error}=await q;if(error)return alert(error.message);
+ $("dHt").textContent="Who held it: "+(a.items?.name||"item")+(a.serial_no?" (Serial "+a.serial_no+")":"");
+ $("dHb").innerHTML=data.length?data.map(e=>{const what=e.event==="assigned"?"Assigned to <b>"+esc(e.employee_name)+"</b> ("+e.quantity+")":e.event==="transferred"?"Transferred from "+esc(e.from_name)+" to <b>"+esc(e.employee_name)+"</b>":"Returned to stock by "+esc(e.employee_name);
+  return `<tr><td>${esc(new Date(e.at).toLocaleDateString())}</td><td style="white-space:normal">${what}</td><td>${esc(e.actor_email||"")}</td></tr>`}).join(""):`<tr><td colspan="3" class="empty">No history yet.</td></tr>`;
+ $("dH").showModal()}
+$("dHc").onclick=()=>$("dH").close();
+
+/* ---- the page a borrower sees when they open the cancel link ---- */
+async function cancelMode(token){
+ document.querySelector("header").hidden=true;["tabs","note","v1"].forEach(i=>$(i).hidden=true);$("vc").hidden=false;
+ const {data,error}=await sb.rpc("get_cancel_info",{p_token:token});
+ if(error||!data){$("vcInfo").textContent="This cancel link is not valid.";$("vcForm").hidden=true;return}
+ $("vcInfo").textContent="Hello "+data.name+", this is your borrow request"+(data.ref_no?" (reference no. "+data.ref_no+")":"")+":";
+ $("vcList").innerHTML=(data.items||[]).map(i=>`<div style="margin:4px 0">• ${i.quantity} ${esc(i.unit||"pcs")} × <b>${esc(i.name)}</b>${i.due_date?" <span class='meta'>("+esc(i.start_date||"")+" to "+esc(i.due_date)+")</span>":""}</div>`).join("");
+ const stop=m=>{$("vcForm").hidden=true;$("vcDone").hidden=false;$("vcDone").textContent=m};
+ if(data.cancelled)return stop("This request has already been cancelled.");
+ if(!data.can_cancel)return stop("This request can no longer be cancelled because the items were already released. Please contact the office.");
+ $("vcGo").onclick=async()=>{if(!confirm("Cancel this whole request?"))return;$("vcGo").disabled=true;
+  const r=await sb.rpc("cancel_request",{p_token:token});$("vcGo").disabled=false;if(r.error)return alert(r.error.message);
+  stop("✅ Your request has been cancelled. Thank you.")}}
+
+/* ---- full backup of all data (admins) ---- */
+async function fetchAll(table){let out=[],from=0;
+ for(;;){const {data,error}=await sb.from(table).select("*").order("id").range(from,from+999);
+  if(error)throw new Error(table+": "+error.message);out=out.concat(data);if(data.length<1000)break;from+=1000}return out}
+function lastBackup(){try{return localStorage.getItem("mfrdcLastBackup")}catch(e){return null}}
+$("bkAll").onclick=async()=>{if(!isAdmin)return;$("bkAll").disabled=true;$("bkAll").textContent="Preparing…";
+ try{const names=["items","item_units","request_batches","requests","assignments","assignment_events","inventory_rounds","inventory_checks","receipts","notifications","activity_log"],tables={};
+  for(const n of names)tables[n]=await fetchAll(n);
+  const st=await sb.rpc("list_staff");if(st.error)throw new Error("staff: "+st.error.message);tables.staff=st.data;
+  const photos=[...new Set([...tables.requests.flatMap(r=>[r.release_photo_path,r.return_photo_path]),...tables.items.map(i=>i.photo_path)].filter(Boolean))];
+  const out={app:"MFRDC Inventory and Borrowing System",exported_at:new Date().toISOString(),
+   note:"Photos are not inside this file. photo_paths lists where they are stored in Supabase Storage. This file contains private links and contact details: keep it private.",
+   row_counts:Object.fromEntries(Object.entries(tables).map(([k,v])=>[k,v.length])),tables,photo_paths:photos};
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,1)],{type:"application/json"}));a.download="mfrdc-full-backup-"+today()+".json";a.click();
+  try{localStorage.setItem("mfrdcLastBackup",new Date().toISOString())}catch(e){}
+  alert("Backup downloaded.\n"+Object.entries(out.row_counts).map(([k,v])=>k+": "+v).join(", ")+"\n\nKeep the file somewhere safe and private, such as Google Drive.");render()}
+ catch(e){alert("Backup failed: "+e.message)}
+ $("bkAll").disabled=false;$("bkAll").textContent="💾 Full backup"};
+
+/* ---- people without email or a phone: paper slips and in-person confirmation ---- */
+function printDoc(title,body){const w=window.open("","_blank");if(!w)return alert("Please allow pop-ups to print.");
+ w.document.write(`<!DOCTYPE html><title>${esc(title)}</title><style>body{font:14px system-ui,sans-serif;margin:28px}h2{margin:0 0 6px}table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #999;padding:6px;text-align:left;vertical-align:top}.sig{margin-top:48px;display:flex;gap:40px}.sig div{flex:1;border-top:1px solid #000;padding-top:4px;font-size:12px}.pb{page-break-after:always}</style>${body}`);
+ w.document.close();w.focus();w.print()}
+function printSlip(id){const b=reqs.find(x=>x.id===id);if(!b)return;
+ const L=(b.requests||[]).filter(l=>l.status!=="rejected"&&l.status!=="cancelled");
+ const rows=L.map(l=>`<tr><td>${l.quantity}</td><td>${esc(l.items?.name||"")}</td><td>${l.items?.returnable===false?"Non-returnable":"Return by "+esc(l.due_date||"")}</td></tr>`).join("");
+ printDoc("Borrow slip",`<h2>MFRDC Inventory: Borrow Slip</h2><div style="font-size:18px">Reference no.: <b>${esc(b.ref_no||"")}</b></div><div>Borrower: <b>${esc(b.borrower_name)}</b> (${esc(b.borrower_contact)})<br>Requested: ${esc(b.created_at.slice(0,10))} &nbsp; Status: ${esc(STAT[batchStatus(b)][0])}</div><table><thead><tr><th>Qty</th><th>Item</th><th>Return</th></tr></thead><tbody>${rows}</tbody></table><p>I received the items listed above in good condition and will return the returnable items by the date shown.</p><div class="sig"><div>Borrower: signature over printed name / date</div><div>Released by (staff) / date</div></div>`)}
+function printAssignSlips(){if(!selAs.size)return alert("Tick the assignment records first.");
+ const g=new Map();assigns.filter(a=>selAs.has(a.id)&&a.status==="active").forEach(a=>{const k=(a.employee_name+"|"+a.employee_contact).toLowerCase();if(!g.has(k))g.set(k,{n:a.employee_name,rows:[]});g.get(k).rows.push(a)});
+ if(!g.size)return alert("Only active assignments can be printed.");
+ printDoc("Acknowledgment slips",[...g.values()].sort((p,q)=>p.n.localeCompare(q.n)).map(x=>`<div class="pb"><h2>MFRDC Inventory: Acknowledgment of Accountability</h2><div>Employee: <b>${esc(x.n)}</b></div><table><thead><tr><th>Qty</th><th>Item</th><th>Serial / property no.</th><th>Condition</th><th>Assigned</th></tr></thead><tbody>${x.rows.map(a=>`<tr><td>${a.quantity} ${esc(a.items?.unit||"pcs")}</td><td>${esc(a.items?.name||"")}</td><td>${esc(a.serial_no||"")}</td><td>${esc(a.condition||"")}</td><td>${esc(a.assigned_date)}</td></tr>`).join("")}</tbody></table><p>I acknowledge that I received the items listed above and that I am accountable for them.</p><div class="sig"><div>Employee: signature over printed name / date</div><div>Issued by (staff) / date</div></div></div>`).join(""))}
+function printChecklist(){const r=rounds.find(x=>x.id===curRound);if(!r)return alert("Select an inventory round first.");
+ const g=new Map();checks.forEach(c=>{const a=c.assignments||{},k=(a.employee_name+"|"+a.employee_contact).toLowerCase();if(!g.has(k))g.set(k,{n:a.employee_name||"",rows:[]});g.get(k).rows.push(a)});
+ if(!g.size)return alert("This round has no items.");
+ printDoc("Verification checklist",[...g.values()].sort((p,q)=>p.n.localeCompare(q.n)).map(x=>`<div class="pb"><h2>${esc(r.title)}: Verification Checklist</h2><div>Employee: <b>${esc(x.n)}</b> &nbsp; Deadline: ${esc(r.due_date)}</div><table><thead><tr><th>Item</th><th>Qty</th><th>Serial / property no.</th><th>Result (tick one)</th><th>Remarks</th></tr></thead><tbody>${x.rows.map(a=>`<tr><td>${esc(a.items?.name||"")}</td><td>${a.quantity||""}</td><td>${esc(a.serial_no||"")}</td><td>☐ Verified &nbsp; ☐ Damaged<br>☐ Unserviceable &nbsp; ☐ Missing</td><td style="min-width:120px"></td></tr>`).join("")}</tbody></table><div class="sig"><div>Employee: signature / date</div><div>Verified by (staff) / date</div></div></div>`).join(""))}
+$("aPrint").onclick=printAssignSlips;$("rPrint").onclick=printChecklist;
+$("aCip").onclick=async()=>{const ids=[...selAs];if(!ids.length)return alert("Tick the assignment records first.");
+ if(!confirm("Confirm in person for "+ids.length+" record(s)?\nUse this only after the employee has signed the paper acknowledgment slip."))return;
+ const {data,error}=await sb.rpc("record_assignment_receipts_in_person",{p_ids:ids,p_note:"paper slip signed"});if(error)return alert(error.message);
+ alert(data?data+" employee(s) marked as confirmed in person.":"Nothing to confirm: those items are already confirmed or not active.");loadReceipts()};
+
+/* ---- logbook page: many requests on ONE sheet, identified by reference number ---- */
+function printLogbook(){const picked=reqs.filter(b=>selReqs.has(b.id)),list=(picked.length?picked:lastRows).slice().sort((x,y)=>(x.ref_no||"").localeCompare(y.ref_no||""));
+ if(!list.length)return alert("There are no requests to print.");
+ const rows=list.map(b=>{const L=(b.requests||[]).filter(l=>l.status!=="rejected"&&l.status!=="cancelled"),due=L.map(l=>l.due_date).filter(Boolean).sort().pop();
+  return `<tr><td><b>${esc(b.ref_no||"")}</b></td><td>${esc(b.created_at.slice(0,10))}</td><td>${esc(b.borrower_name)}</td><td>${L.map(l=>l.quantity+" "+(l.items?.unit||"pcs")+" × "+esc(l.items?.name||"")).join("<br>")}</td><td>${esc(due||"—")}</td><td style="min-width:130px"></td><td style="min-width:100px"></td></tr>`}).join("");
+ printDoc("Logbook page",`<h2>MFRDC Inventory: Borrow Logbook</h2><div>Printed ${esc(today())}. Each line is one request. The borrower signs on the line; staff initial when the items are released.</div><table><thead><tr><th>Ref no.</th><th>Date</th><th>Borrower</th><th>Items</th><th>Return by</th><th>Borrower signature</th><th>Released by</th></tr></thead><tbody>${rows}</tbody></table>`)}
+$("rqLog").onclick=printLogbook;
+
+/* ---- automatic monthly backups (admins) ---- */
+let backups=[];
+async function loadBackups(){if(!isAdmin)return;
+ const {data,error}=await sb.from("backup_log").select("*").order("at",{ascending:false}).limit(24);
+ if(error)return;backups=data||[];renderBackups();render()}
+function renderBackups(){const mb=n=>n>=1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
+ $("bkbody").innerHTML=backups.length?backups.map(b=>`<tr><td>${esc(new Date(b.at).toLocaleString())}</td><td><span class="badge ${b.status==="ok"?"ok":"out"}">${b.status==="ok"?"Saved":"Failed"}</span>${b.status==="ok"?(b.emailed?" · emailed":" · not emailed"):""}${b.error?`<div class="meta" style="white-space:normal">${esc(b.error)}</div>`:""}</td><td>${b.size_bytes?mb(b.size_bytes):"—"}</td><td class="meta" style="white-space:normal">${b.row_counts?Object.entries(b.row_counts).map(([k,v])=>k+": "+v).join(", "):""}</td><td>${b.file_path&&b.status==="ok"?`<button class="s" data-bd="${esc(b.file_path)}">Download</button>`:""}</td></tr>`).join(""):`<tr><td colspan="5" class="empty">No automatic backups yet. The first one runs on the last day of the month, or click “Run a backup now”.</td></tr>`}
+$("bkbody").onclick=async e=>{const b=e.target.closest("button");if(!b||!b.dataset.bd)return;
+ const {data,error}=await sb.storage.from("backups").createSignedUrl(b.dataset.bd,300,{download:true});if(error)return alert(error.message);
+ const a=document.createElement("a");a.href=data.signedUrl;a.click()};
+$("bkRef").onclick=loadBackups;
+$("bkNow").onclick=async()=>{if(!isAdmin)return;if(!confirm("Run a backup now? A file is saved and a copy is emailed to the inventory mailbox."))return;
+ $("bkNow").disabled=true;const {error}=await sb.rpc("run_backup_now");$("bkNow").disabled=false;if(error)return alert(error.message);
+ alert("The backup has started. It takes a few seconds. The result will appear in the list.");setTimeout(loadBackups,8000);setTimeout(loadBackups,20000)};
+
+/* ---- side menu (staff and admins) ---- */
+function closeMenu(){$("tabs").classList.remove("open");document.body.classList.remove("menu-open")}
+$("menuBtn").onclick=()=>{const o=$("tabs").classList.toggle("open");document.body.classList.toggle("menu-open",o)};
+$("mbd").onclick=closeMenu;
+function setCollapsed(c){document.querySelector("main").classList.toggle("collapsed",c);$("mtIc").textContent=c?"»":"«";$("menuToggle").title=c?"Expand menu":"Collapse menu";try{localStorage.setItem("mfrdcMenuCollapsed",c?"1":"0")}catch(e){}}
+$("menuToggle").onclick=()=>setCollapsed(!document.querySelector("main").classList.contains("collapsed"));
+try{if(localStorage.getItem("mfrdcMenuCollapsed")==="1")setCollapsed(true)}catch(e){}
+
+
+/* ---- units register: many units, each with its own serial / property number ---- */
+let unitsItem=null,unitList=[],unservUnits=[];
+const UCONDS=["Good","Fair","Needs repair","Damaged","Unserviceable","Missing"];
+function fToggleTrack(){const t=$("ftu").checked;$("fdm").disabled=t;$("fun").disabled=t}
+$("ftu").onchange=fToggleTrack;
+async function openUnits(id){unitsItem=items.find(x=>x.id===id);if(!unitsItem)return;
+ $("dUt").textContent="Serial / property numbers: "+unitsItem.name;$("uPaste").value="";$("uq").value="";
+ await loadUnits();$("dU").showModal()}
+async function loadUnits(){let out=[],from=0;
+ for(;;){const {data,error}=await sb.from("item_units").select("*").eq("item_id",unitsItem.id).order("serial_no").range(from,from+999);
+  if(error){alert(error.message);break}out=out.concat(data||[]);if((data||[]).length<1000)break;from+=1000}
+ unitList=out;await loadItems();unitsItem=items.find(x=>x.id===unitsItem.id)||unitsItem;renderUnits()}
+function renderUnits(){const q=$("uq").value.toLowerCase().trim(),holder=new Map(assigns.filter(a=>a.status==="active"&&a.unit_id).map(a=>[a.unit_id,a.employee_name]));
+ const l=unitList.filter(u=>!q||[u.serial_no,u.location,u.condition].join(" ").toLowerCase().includes(q)),n=unitList.length;
+ $("dUs").textContent=n+" unit(s) registered. Total quantity of this item: "+unitsItem.quantity+"."+(unitsItem.quantity>n?" "+(unitsItem.quantity-n)+" more unit(s) still need a number.":"");
+ const rows=l.slice(0,300).map(u=>`<tr><td>${esc(u.serial_no)}</td><td><select data-uc="${u.id}" style="width:auto">${UCONDS.map(c=>`<option${c===u.condition?" selected":""}>${c}</option>`).join("")}</select></td><td>${esc(u.location||"—")}</td><td>${esc(holder.get(u.id)||"In stock / storage")}</td><td>${isAdmin?`<button class="d s" data-ud="${u.id}">Delete</button>`:""}</td></tr>`).join("");
+ $("ubody").innerHTML=(rows+(l.length>300?`<tr><td colspan="5" class="meta">Showing the first 300 of ${l.length}. Use the search box to find a number.</td></tr>`:""))||`<tr><td colspan="5" class="empty">No units registered yet.</td></tr>`}
+$("uq").addEventListener("input",renderUnits);
+$("uC").onclick=()=>$("dU").close();
+$("ubody").onchange=async e=>{const t=e.target;if(!t.dataset.uc)return;
+ const {error}=await sb.from("item_units").update({condition:t.value}).eq("id",t.dataset.uc);if(error)alert(error.message);await loadUnits()};
+$("ubody").onclick=async e=>{const b=e.target.closest("button");if(!b||!b.dataset.ud||!isAdmin)return;
+ if(!confirm("Delete this unit from the register? The item's total goes down by one."))return;
+ const {error}=await sb.from("item_units").delete().eq("id",b.dataset.ud);if(error)alert(error.message);await loadUnits()};
+$("uAdd").onclick=async()=>{if(!unitsItem)return;const set=new Set();
+ $("uPaste").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).forEach(x=>set.add(x));
+ const pre=$("uPre").value,fr=$("uFrom").value,to=$("uTo").value;
+ if(fr!==""||to!==""){const a=parseInt(fr,10),b=parseInt(to,10),pad=Math.min(10,Math.max(0,parseInt($("uPad").value,10)||0));
+  if(isNaN(a)||isNaN(b)||b<a)return alert("Check the From and To numbers.");if(b-a+1>5000)return alert("Generate at most 5000 numbers at a time.");
+  for(let k=a;k<=b;k++)set.add(pre+String(k).padStart(pad,"0"))}
+ const all=[...set];if(!all.length)return alert("Paste some numbers, or fill in the From and To boxes.");
+ if(!confirm("Add "+all.length+" unit(s) to "+unitsItem.name+"?"))return;
+ $("uAdd").disabled=true;let added=0,err=null;
+ for(let i=0;i<all.length;i+=500){const rows=all.slice(i,i+500).map(sn=>({item_id:unitsItem.id,serial_no:sn,condition:$("uCond").value,location:$("uLoc").value.trim()||null}));
+  const {data,error}=await sb.from("item_units").upsert(rows,{onConflict:"item_id,serial_no",ignoreDuplicates:true}).select("id");
+  if(error){err=error.message;break}added+=(data||[]).length}
+ $("uAdd").disabled=false;
+ alert((err?"Stopped: "+err+"\n":"")+added+" unit(s) added"+(!err&&all.length>added?" ("+(all.length-added)+" already existed)":"")+".");
+ $("uPaste").value="";await loadUnits()};
+
+/* the assign window offers the free serial / property numbers of tracked items */
+async function aSyncUnit(selected){const it=items.find(x=>x.id===$("ai").value),t=!!(it&&it.track_units);
+ $("aUnitRow").hidden=!t;$("aQtyRow").hidden=t;if(!t){$("au").innerHTML="";return}
+ const {data}=await sb.from("item_units").select("id,serial_no,condition").eq("item_id",it.id).order("serial_no").limit(2000);
+ const taken=new Set(assigns.filter(a=>a.status==="active"&&a.unit_id&&a.id!==assignEdit).map(a=>a.unit_id));
+ $("au").innerHTML=(data||[]).filter(u=>!taken.has(u.id)).map(u=>`<option value="${u.id}"${u.id===selected?" selected":""}>${esc(u.serial_no)}${u.condition!=="Good"?" ("+esc(u.condition)+")":""}</option>`).join("")||'<option value="">No free units: add numbers under Units first</option>'}
+$("ai").onchange=()=>aSyncUnit();
+
+/* ---- start ---- */
+if(typeof SUPABASE_URL==="undefined"||SUPABASE_URL.startsWith("PASTE")){note("Setup needed: open config.js and paste your Supabase URL and anon key.");}
+else if(typeof supabase==="undefined"){note("Cannot connect. Please check your internet connection and reload.")}
+else{
+ sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+ const qs=new URLSearchParams(location.search),rc=qs.get("receipt"),cc=qs.get("cancel");
+ if(rc)receiptMode(rc);
+ else if(cc)cancelMode(cc);
+ else{
+  sb.auth.onAuthStateChange((ev,session)=>{setTimeout(()=>checkStaff(session),0)});
+  loadItems();
+ }
+}
+</script></main></body></html>
