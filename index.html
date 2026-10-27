@@ -238,7 +238,7 @@ main.staff #tabs{position:sticky;top:12px}
  <label>Item *</label><select id="ai"></select>
  <label>Accountable employee (full name) *</label><input id="an">
  <label>Employee email * (notices are sent here). No email? Type NONE: staff will handle it in person.</label><input id="aem" placeholder="name@example.com or 09XXXXXXXXX">
- <div id="aUnitRow" hidden><label>Serial / property number *</label><select id="au"></select></div>
+ <div id="aUnitRow" hidden><label>Serial / property number * (choose one)</label><input type="search" id="auq" placeholder="Search the numbers…" aria-label="Search serial numbers"><div class="meta" id="auc" style="margin:4px 0"></div><select id="au" size="6"></select></div>
  <div id="aQtyRow"><label>Quantity *</label><input id="aqty" type="number" min="1" value="1">
  <label>Serial / property number</label><input id="asn"></div>
  <label>Condition</label><select id="acond"><option>Good</option><option>Fair</option><option>Needs repair</option><option>Damaged</option><option>Unserviceable</option></select>
@@ -256,8 +256,13 @@ main.staff #tabs{position:sticky;top:12px}
 <dialog id="dRS"><h3>Start inventory</h3>
  <div class="meta">Every accountable employee with an item in the count will be notified by email or SMS. Units kept in storage are listed for counting, but nobody is emailed for them.</div>
  <label>What to count *</label>
- <select id="rsScope"><option value="all">All items</option><option value="one">Only one item</option></select>
- <div id="rsItemRow" hidden><label>Item *</label><select id="rsItem"></select></div>
+ <select id="rsScope"><option value="all">All items</option><option value="some">Only the items I choose</option></select>
+ <div id="rsItemRow" hidden>
+  <input type="search" id="rsq" placeholder="Search items…" style="margin-top:6px" aria-label="Search items">
+  <div class="meta" id="rsCount" style="margin:4px 0"></div>
+  <div id="rsList" style="max-height:220px;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
+  <div class="row" style="margin-top:6px"><button class="s" id="rsAll" type="button">Select all shown</button><button class="s" id="rsNone" type="button">Clear</button></div>
+ </div>
  <label>Title (optional)</label><input id="rt" placeholder="e.g. Inventory, 1st half 2026">
  <label>Deadline for verification *</label><input id="rd" type="date">
  <div class="row" style="margin-top:12px"><button class="p" id="rsGo">Start and notify</button><button id="rsC">Cancel</button></div></dialog>
@@ -563,7 +568,7 @@ function renderAssign(){const q=$("aq").value.toLowerCase().trim(),sh=$("ah").ch
  const l=assigns.filter(a=>(sh||a.status==="active")&&(!q||[a.employee_name,a.employee_contact,a.items?.name,a.serial_no,a.condition].join(" ").toLowerCase().includes(q)));
  $("acnt").textContent=l.length+" record(s)";
  lastAs=l;$("aDel").disabled=!selAs.size;$("aDel").textContent="🗑 Delete selected"+(selAs.size?" ("+selAs.size+")":"");$("asAll").checked=l.length>0&&l.every(a=>selAs.has(a.id));
- $("abody").innerHTML=l.length?l.map(a=>`<tr><td><input type="checkbox" class="asck" data-id="${a.id}" ${selAs.has(a.id)?"checked":""} style="width:auto"></td><td>${esc(a.employee_name)}</td><td>${esc(a.employee_contact)}</td><td>${esc(a.items?.name)}</td><td>${a.quantity} ${esc(a.items?.unit||"pcs")}</td><td>${esc(a.serial_no||"—")}</td><td>${esc(a.condition||"—")}</td><td>${esc(a.assigned_date)}${a.status==="returned"?`<div class="meta">Returned ${esc(a.returned_date||"")}</div>`:""}</td><td class="meta">${rcptFor(a)}</td><td>${a.status==="active"?`<button class="s" data-ae="${a.id}">Edit</button> <button class="s" data-ar="${a.id}">Return to stock</button>`:`<span class="badge neutral">Returned</span>`} <button class="s" data-ah="${a.id}">History</button></td></tr>`).join(""):`<tr><td colspan="10" class="empty">No records yet. Click “+ Assign item” or “Import CSV”.</td></tr>`}
+ $("abody").innerHTML=l.length?l.map(a=>`<tr><td><input type="checkbox" class="asck" data-id="${a.id}" ${selAs.has(a.id)?"checked":""} style="width:auto"></td><td>${esc(a.employee_name)}</td><td>${esc(a.employee_contact)}</td><td>${esc(a.items?.name)}</td><td>${a.quantity} ${esc(a.items?.unit||"pcs")}</td><td><b>${esc(a.serial_no||"—")}</b></td><td>${esc(a.condition||"—")}</td><td>${esc(a.assigned_date)}${a.status==="returned"?`<div class="meta">Returned ${esc(a.returned_date||"")}</div>`:""}</td><td class="meta">${rcptFor(a)}</td><td>${a.status==="active"?`<button class="s" data-ae="${a.id}">Edit</button> <button class="s" data-ar="${a.id}">Return to stock</button>`:`<span class="badge neutral">Returned</span>`} <button class="s" data-ah="${a.id}">History</button></td></tr>`).join(""):`<tr><td colspan="10" class="empty">No records yet. Click “+ Assign item” or “Import CSV”.</td></tr>`}
 function fillItemSelect(){$("ai").innerHTML=[...items].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}">${esc(i.name)} (free: ${i.available})</option>`).join("")}
 $("aAdd").onclick=()=>{if(!items.length)return alert("Add the item to the inventory first.");assignEdit=null;$("dAt").textContent="Assign item to employee";fillItemSelect();
  ["an","aem","asn","ano"].forEach(k=>$(k).value="");$("aqty").value=1;$("acond").value="Good";$("ad").value=today();$("dA").showModal();aSyncUnit()};
@@ -627,17 +632,18 @@ function renderRounds(){
  const r=rounds.find(x=>x.id===curRound);$("rStart").disabled=rounds.some(x=>x.status==="open");$("rClose").disabled=!r||r.status!=="open";$("rX").disabled=!r;$("rDel").disabled=!r;
  if(!r){$("rinfo").textContent="No inventory has been started yet. Click “Start inventory” to notify every accountable employee. It also starts automatically every January 2 and July 2.";$("rbody").innerHTML="";return}
  const done=checks.filter(c=>c.result!=="pending").length;
- $("rinfo").textContent=r.title+": deadline "+r.due_date+". "+done+" of "+checks.length+" item(s) checked."+(r.scope_item_ids?" Counting only: "+r.scope_item_ids.map(id=>items.find(i=>i.id===id)?.name||"item").join(", ")+".":" Counting all items.")+(r.status==="closed"?" This round is closed.":"");
+ $("rinfo").textContent=r.title+": deadline "+r.due_date+". "+done+" of "+checks.length+" item(s) checked."+(r.scope_item_ids?" Counting only: "+(r.scope_item_ids.slice(0,5).map(id=>items.find(i=>i.id===id)?.name||"item").join(", ")+(r.scope_item_ids.length>5?" and "+(r.scope_item_ids.length-5)+" more":""))+".":" Counting all items.")+(r.status==="closed"?" This round is closed.":"");
  const rows=[...checks].sort((a,b)=>(a.assignments?.employee_name||"").localeCompare(b.assignments?.employee_name||"")),cl={pending:"low",verified:"ok",missing:"out",damaged:"low",unserviceable:"out"};
  $("rbody").innerHTML=rows.length?rows.map(c=>{const a=c.assignments||{};return `<tr><td>${esc(a.employee_name)}</td><td>${esc(a.employee_contact)}</td><td>${esc(a.items?.name)}</td><td>${a.quantity} ${esc(a.items?.unit||"pcs")}</td><td>${esc(a.serial_no||"—")}</td><td><span class="badge ${cl[c.result]}">${resLabel(c.result)}</span></td><td class="meta" style="white-space:normal;min-width:120px">${esc(c.remarks||"")}</td><td>${c.checked_at?esc(c.checked_at.slice(0,10)):"—"}</td><td>${r.status==="open"?`<button class="p s" data-k="${c.id}">Record result</button>`:""}</td></tr>`}).join(""):`<tr><td colspan="9" class="empty">No items in this round.</td></tr>`}
 $("rsel").onchange=()=>{curRound=$("rsel").value;loadChecks()};
-$("rStart").onclick=()=>{$("rsScope").value="all";$("rsItemRow").hidden=true;$("rsItem").innerHTML=[...items].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<option value="${i.id}">${esc(i.name)}</option>`).join("");$("rt").value="";$("rd").min=today();$("rd").value=new Date(Date.now()+30*864e5).toISOString().slice(0,10);$("dRS").showModal()};
+$("rStart").onclick=()=>{$("rsScope").value="all";$("rsItemRow").hidden=true;rsSel.clear();$("rsq").value="";renderRsList();$("rt").value="";$("rd").min=today();$("rd").value=new Date(Date.now()+30*864e5).toISOString().slice(0,10);$("dRS").showModal()};
 $("rsC").onclick=()=>$("dRS").close();
-$("rsScope").onchange=()=>{$("rsItemRow").hidden=$("rsScope").value!=="one"};
+$("rsScope").onchange=()=>{$("rsItemRow").hidden=$("rsScope").value!=="some"};
 $("rsGo").onclick=async()=>{const due=$("rd").value;if(!due)return alert("Choose a deadline.");
- if($("rsScope").value==="one"&&!$("rsItem").value)return alert("Choose the item to count.");
+ if($("rsScope").value==="some"&&!rsSel.size)return alert("Choose at least one item to count.");
  if(!assigns.some(a=>a.status==="active")&&!items.some(i=>i.track_units))return alert("No items are assigned to employees yet. Add them under Accountability first.");
- $("rsGo").disabled=true;const {data,error}=await sb.rpc("start_inventory_round",{p_due:due,p_title:$("rt").value.trim()||null,p_items:$("rsScope").value==="one"?[$("rsItem").value]:null});$("rsGo").disabled=false;
+ const many=$("rsScope").value==="some"&&rsSel.size>1;
+ $("rsGo").disabled=true;const {data,error}=await sb.rpc("start_inventory_round",{p_due:due,p_title:$("rt").value.trim()||(many?"Inventory: "+rsSel.size+" selected items, "+(new Date().getMonth()<6?"1st half ":"2nd half ")+new Date().getFullYear():null),p_items:$("rsScope").value==="some"?[...rsSel]:null});$("rsGo").disabled=false;
  if(error)return alert(error.message);$("dRS").close();curRound=data;await loadRounds();note("✅ Inventory started. Each accountable employee is being notified. Check the Notices log in Supabase (notifications table) for delivery results.")};
 $("rClose").onclick=async()=>{const r=rounds.find(x=>x.id===curRound);if(!r)return;const left=checks.filter(c=>c.result==="pending").length;
  if(!confirm("Close this round?"+(left?" "+left+" item(s) are still unchecked and will be listed as not shown.":"")+" A report of unreturned items and unverified items will be generated."))return;
@@ -1018,12 +1024,28 @@ $("uAdd").onclick=async()=>{if(!unitsItem)return;const set=new Set();
  $("uPaste").value="";await loadUnits()};
 
 /* the assign window offers the free serial / property numbers of tracked items */
+let freeUnits=[];
+function renderAu(sel){const q=$("auq").value.toLowerCase().trim(),cur=sel||$("au").value,l=freeUnits.filter(u=>!q||u.serial_no.toLowerCase().includes(q));
+ $("au").innerHTML=l.slice(0,500).map(u=>`<option value="${u.id}"${u.id===cur?" selected":""}>${esc(u.serial_no)}${u.condition!=="Good"?" ("+esc(u.condition)+")":""}</option>`).join("")||'<option value="">No matching free numbers</option>';
+ if(!$("au").value&&$("au").options.length&&$("au").options[0].value)$("au").selectedIndex=0;
+ $("auc").textContent=freeUnits.length+" free number(s)"+(l.length>500?" (showing the first 500: use the search box)":"")}
 async function aSyncUnit(selected){const it=items.find(x=>x.id===$("ai").value),t=!!(it&&it.track_units);
  $("aUnitRow").hidden=!t;$("aQtyRow").hidden=t;if(!t){$("au").innerHTML="";return}
- const {data}=await sb.from("item_units").select("id,serial_no,condition").eq("item_id",it.id).order("serial_no").limit(2000);
+ const {data}=await sb.from("item_units").select("id,serial_no,condition").eq("item_id",it.id).order("serial_no").limit(5000);
  const taken=new Set(assigns.filter(a=>a.status==="active"&&a.unit_id&&a.id!==assignEdit).map(a=>a.unit_id));
- $("au").innerHTML=(data||[]).filter(u=>!taken.has(u.id)).map(u=>`<option value="${u.id}"${u.id===selected?" selected":""}>${esc(u.serial_no)}${u.condition!=="Good"?" ("+esc(u.condition)+")":""}</option>`).join("")||'<option value="">No free units: add numbers under Units first</option>'}
+ freeUnits=(data||[]).filter(u=>!taken.has(u.id));$("auq").value="";renderAu(selected)}
+$("auq").addEventListener("input",()=>renderAu());
 $("ai").onchange=()=>aSyncUnit();
+
+/* ---- choose which items an inventory counts ---- */
+let rsSel=new Set();
+function renderRsList(){const q=$("rsq").value.toLowerCase().trim(),l=[...items].filter(i=>!q||(i.name+" "+(i.category||"")).toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
+ $("rsList").innerHTML=l.map(i=>`<label style="display:flex;align-items:center;gap:8px;margin:3px 0;color:var(--tx);font-size:14px"><input type="checkbox" data-rs="${i.id}" style="width:auto"${rsSel.has(i.id)?" checked":""}> ${esc(i.name)}${i.track_units?' <span class="meta">(serial-tracked)</span>':""}</label>`).join("")||'<div class="meta">No items match.</div>';
+ $("rsCount").textContent=rsSel.size+" item(s) selected"}
+$("rsList").onchange=e=>{const c=e.target.closest("[data-rs]");if(!c)return;c.checked?rsSel.add(c.dataset.rs):rsSel.delete(c.dataset.rs);$("rsCount").textContent=rsSel.size+" item(s) selected"};
+$("rsq").addEventListener("input",renderRsList);
+$("rsAll").onclick=()=>{$("rsList").querySelectorAll("[data-rs]").forEach(c=>rsSel.add(c.dataset.rs));renderRsList()};
+$("rsNone").onclick=()=>{rsSel.clear();renderRsList()};
 
 /* ---- start ---- */
 if(typeof SUPABASE_URL==="undefined"||SUPABASE_URL.startsWith("PASTE")){note("Setup needed: open config.js and paste your Supabase URL and anon key.");}
