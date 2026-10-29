@@ -78,6 +78,7 @@ main.staff #tabs{position:sticky;top:12px}
 }
 @media (max-width:820px){ .menu .mt{display:none} }
 #v3 th:last-child,#v3 td:last-child{position:sticky;right:0;background:var(--card);box-shadow:-8px 0 8px -8px rgba(0,0,0,.25)}
+.ck{display:flex;align-items:center;gap:8px;color:var(--tx);font-size:14px;margin:5px 0}
 </style></head><body><main>
 <div id="mbd"></div>
 <header>
@@ -130,7 +131,7 @@ main.staff #tabs{position:sticky;top:12px}
 </section>
 
 <section id="v5" hidden>
- <div class="bar"><select id="rsel" aria-label="Inventory round"></select><button class="p" id="rStart">Start inventory</button><button id="rClose">Close round</button><button id="rX">⬇ Export results</button><button id="rRep">📋 Inventory report</button><button id="rPrint">🖨 Print checklist</button><button class="d" id="rDel" disabled>🗑 Delete round</button></div>
+ <div class="bar"><select id="rsel" aria-label="Inventory round"></select><button class="p" id="rStart">Start inventory</button><button id="rClose">Close round</button><button id="rRemind">🔔 Send reminder now</button><button id="rX">⬇ Export results</button><button id="rRep">📋 Inventory report</button><button id="rPrint">🖨 Print checklist</button><button class="d" id="rDel" disabled>🗑 Delete round</button></div>
  <div class="note" id="rinfo"></div>
  <div class="tblw"><table><thead><tr><th>Employee</th><th>Contact</th><th>Item</th><th>Qty</th><th>Serial / property no.</th><th>Result</th><th>Remarks</th><th>Checked</th><th></th></tr></thead><tbody id="rbody"></tbody></table></div>
 </section>
@@ -263,6 +264,13 @@ main.staff #tabs{position:sticky;top:12px}
   <div id="rsList" style="max-height:220px;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:6px"></div>
   <div class="row" style="margin-top:6px"><button class="s" id="rsAll" type="button">Select all shown</button><button class="s" id="rsNone" type="button">Clear</button></div>
  </div>
+ <label>Automatic reminders</label>
+ <div class="meta">Sent by email at 8:00 AM Philippine time, only to employees who still have items to verify.</div>
+ <label class="ck"><input type="checkbox" class="rmd" value="7" style="width:auto"> 7 days before the deadline</label>
+ <label class="ck"><input type="checkbox" class="rmd" value="3" style="width:auto" checked> 3 days before the deadline</label>
+ <label class="ck"><input type="checkbox" class="rmd" value="1" style="width:auto" checked> 1 day before the deadline</label>
+ <label class="ck"><input type="checkbox" class="rmd" value="0" style="width:auto" checked> On the deadline day</label>
+ <label class="ck"><input type="checkbox" id="rmOver" style="width:auto" checked> After the deadline, every <input id="rmOverN" type="number" min="1" max="30" value="3" style="width:70px"> day(s) until done</label>
  <label>Title (optional)</label><input id="rt" placeholder="e.g. Inventory, 1st half 2026">
  <label>Deadline for verification *</label><input id="rd" type="date">
  <div class="row" style="margin-top:12px"><button class="p" id="rsGo">Start and notify</button><button id="rsC">Cancel</button></div></dialog>
@@ -629,21 +637,21 @@ async function loadChecks(){if(!isStaff)return;if(!curRound){checks=[];return re
  checks=(data||[]).map(c=>c.assignments?c:{...c,assignments:c.item_units?{employee_name:"In stock / storage",employee_contact:"",quantity:1,serial_no:c.item_units.serial_no,unit_id:c.unit_id,items:c.item_units.items}:null});render()}
 function renderRounds(){
  $("rsel").innerHTML=rounds.length?rounds.map(r=>`<option value="${r.id}"${r.id===curRound?" selected":""}>${esc(r.title)} (${r.status})</option>`).join(""):"<option>No inventory yet</option>";
- const r=rounds.find(x=>x.id===curRound);$("rStart").disabled=rounds.some(x=>x.status==="open");$("rClose").disabled=!r||r.status!=="open";$("rX").disabled=!r;$("rDel").disabled=!r;
+ const r=rounds.find(x=>x.id===curRound);$("rStart").disabled=rounds.some(x=>x.status==="open");$("rClose").disabled=!r||r.status!=="open";$("rRemind").disabled=!r||r.status!=="open";$("rX").disabled=!r;$("rDel").disabled=!r;
  if(!r){$("rinfo").textContent="No inventory has been started yet. Click “Start inventory” to notify every accountable employee. It also starts automatically every January 2 and July 2.";$("rbody").innerHTML="";return}
  const done=checks.filter(c=>c.result!=="pending").length;
- $("rinfo").textContent=r.title+": deadline "+r.due_date+". "+done+" of "+checks.length+" item(s) checked."+(r.scope_item_ids?" Counting only: "+(r.scope_item_ids.slice(0,5).map(id=>items.find(i=>i.id===id)?.name||"item").join(", ")+(r.scope_item_ids.length>5?" and "+(r.scope_item_ids.length-5)+" more":""))+".":" Counting all items.")+(r.status==="closed"?" This round is closed.":"");
+ $("rinfo").textContent=r.title+": deadline "+r.due_date+". "+done+" of "+checks.length+" item(s) checked."+(r.scope_item_ids?" Counting only: "+(r.scope_item_ids.slice(0,5).map(id=>items.find(i=>i.id===id)?.name||"item").join(", ")+(r.scope_item_ids.length>5?" and "+(r.scope_item_ids.length-5)+" more":""))+".":" Counting all items.")+(r.status==="closed"?" This round is closed.":"")+" "+remText(r);
  const rows=[...checks].sort((a,b)=>(a.assignments?.employee_name||"").localeCompare(b.assignments?.employee_name||"")),cl={pending:"low",verified:"ok",missing:"out",damaged:"low",unserviceable:"out"};
  $("rbody").innerHTML=rows.length?rows.map(c=>{const a=c.assignments||{};return `<tr><td>${esc(a.employee_name)}</td><td>${esc(a.employee_contact)}</td><td>${esc(a.items?.name)}</td><td>${a.quantity} ${esc(a.items?.unit||"pcs")}</td><td>${esc(a.serial_no||"—")}</td><td><span class="badge ${cl[c.result]}">${resLabel(c.result)}</span></td><td class="meta" style="white-space:normal;min-width:120px">${esc(c.remarks||"")}</td><td>${c.checked_at?esc(c.checked_at.slice(0,10)):"—"}</td><td>${r.status==="open"?`<button class="p s" data-k="${c.id}">Record result</button>`:""}</td></tr>`}).join(""):`<tr><td colspan="9" class="empty">No items in this round.</td></tr>`}
 $("rsel").onchange=()=>{curRound=$("rsel").value;loadChecks()};
-$("rStart").onclick=()=>{$("rsScope").value="all";$("rsItemRow").hidden=true;rsSel.clear();$("rsq").value="";renderRsList();$("rt").value="";$("rd").min=today();$("rd").value=new Date(Date.now()+30*864e5).toISOString().slice(0,10);$("dRS").showModal()};
+$("rStart").onclick=()=>{$("rsScope").value="all";$("rsItemRow").hidden=true;rsSel.clear();$("rsq").value="";renderRsList();document.querySelectorAll(".rmd").forEach(c=>c.checked=c.value!=="7");$("rmOver").checked=true;$("rmOverN").value=3;$("rt").value="";$("rd").min=today();$("rd").value=new Date(Date.now()+30*864e5).toISOString().slice(0,10);$("dRS").showModal()};
 $("rsC").onclick=()=>$("dRS").close();
 $("rsScope").onchange=()=>{$("rsItemRow").hidden=$("rsScope").value!=="some"};
 $("rsGo").onclick=async()=>{const due=$("rd").value;if(!due)return alert("Choose a deadline.");
  if($("rsScope").value==="some"&&!rsSel.size)return alert("Choose at least one item to count.");
  if(!assigns.some(a=>a.status==="active")&&!items.some(i=>i.track_units))return alert("No items are assigned to employees yet. Add them under Accountability first.");
  const many=$("rsScope").value==="some"&&rsSel.size>1;
- $("rsGo").disabled=true;const {data,error}=await sb.rpc("start_inventory_round",{p_due:due,p_title:$("rt").value.trim()||(many?"Inventory: "+rsSel.size+" selected items, "+(new Date().getMonth()<6?"1st half ":"2nd half ")+new Date().getFullYear():null),p_items:$("rsScope").value==="some"?[...rsSel]:null});$("rsGo").disabled=false;
+ $("rsGo").disabled=true;const {data,error}=await sb.rpc("start_inventory_round",{p_due:due,p_title:$("rt").value.trim()||(many?"Inventory: "+rsSel.size+" selected items, "+(new Date().getMonth()<6?"1st half ":"2nd half ")+new Date().getFullYear():null),p_items:$("rsScope").value==="some"?[...rsSel]:null,p_remind_days:[...document.querySelectorAll(".rmd:checked")].map(c=>+c.value),p_remind_overdue:$("rmOver").checked?Math.min(30,Math.max(1,parseInt($("rmOverN").value,10)||3)):null});$("rsGo").disabled=false;
  if(error)return alert(error.message);$("dRS").close();curRound=data;await loadRounds();note("✅ Inventory started. Each accountable employee is being notified. Check the Notices log in Supabase (notifications table) for delivery results.")};
 $("rClose").onclick=async()=>{const r=rounds.find(x=>x.id===curRound);if(!r)return;const left=checks.filter(c=>c.result==="pending").length;
  if(!confirm("Close this round?"+(left?" "+left+" item(s) are still unchecked and will be listed as not shown.":"")+" A report of unreturned items and unverified items will be generated."))return;
@@ -1046,6 +1054,19 @@ $("rsList").onchange=e=>{const c=e.target.closest("[data-rs]");if(!c)return;c.ch
 $("rsq").addEventListener("input",renderRsList);
 $("rsAll").onclick=()=>{$("rsList").querySelectorAll("[data-rs]").forEach(c=>rsSel.add(c.dataset.rs));renderRsList()};
 $("rsNone").onclick=()=>{rsSel.clear();renderRsList()};
+
+/* ---- inventory reminders ---- */
+function remText(r){const d=(r.reminder_days||[]).slice().sort((a,b)=>b-a),before=d.filter(x=>x>0),parts=[];
+ if(before.length)parts.push(before.join(", ")+" day"+(before.length===1&&before[0]===1?"":"s")+" before the deadline");
+ if(d.includes(0))parts.push("on the deadline day");
+ if(r.remind_overdue_every)parts.push("every "+r.remind_overdue_every+" day"+(r.remind_overdue_every===1?"":"s")+" after it until done");
+ return parts.length?"Automatic reminders: "+parts.join(", ")+".":"No automatic reminders."}
+$("rRemind").onclick=async()=>{const r=rounds.find(x=>x.id===curRound);if(!r||r.status!=="open")return;
+ const people=new Set(checks.filter(c=>c.result==="pending"&&(c.assignments?.employee_contact||"").includes("@")).map(c=>c.assignments.employee_contact.trim().toLowerCase()));
+ if(!people.size)return alert("No employee with an email address has items left to verify.");
+ if(!confirm("Send a reminder email now to "+people.size+" employee(s) who still have items to verify?"))return;
+ $("rRemind").disabled=true;const {error}=await sb.rpc("send_round_reminder_now",{p_round:r.id});$("rRemind").disabled=false;
+ if(error)return alert(error.message);alert("Reminders are being sent.")};
 
 /* ---- start ---- */
 if(typeof SUPABASE_URL==="undefined"||SUPABASE_URL.startsWith("PASTE")){note("Setup needed: open config.js and paste your Supabase URL and anon key.");}
